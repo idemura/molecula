@@ -10,7 +10,7 @@ configure:
 	@cd $(BUILD_DIR) && cmake -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) ..
 
 build: configure
-	@cmake --build $(BUILD_DIR) -j
+	@cmake --build $(BUILD_DIR) -j8
 
 clean:
 	@rm -r $(BUILD_DIR)
