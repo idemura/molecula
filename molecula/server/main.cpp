@@ -1,7 +1,7 @@
 #include <iostream>
 #include <memory>
 
-#include "compiler/Compiler.hpp"
+#include "molecula/compiler/Compiler.hpp"
 #include "velox/common/base/Status.h"
 #include "velox/common/base/VeloxException.h"
 

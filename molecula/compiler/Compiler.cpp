@@ -1,4 +1,4 @@
-#include "compiler/Compiler.hpp"
+#include "molecula/compiler/Compiler.hpp"
 
 namespace molecula {
 void Compiler::compile(std::string_view sql) {

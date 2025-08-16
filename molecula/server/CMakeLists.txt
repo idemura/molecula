@@ -15,5 +15,9 @@ target_link_libraries(molecula_server
 
 target_include_directories(molecula_server
     PRIVATE
+        ${CMAKE_SOURCE_DIR}
+)
+target_include_directories(molecula_server
+    PRIVATE
         ${CMAKE_SOURCE_DIR}/velox
 )

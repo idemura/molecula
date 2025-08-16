@@ -7,13 +7,13 @@ all: build
 
 configure:
 	@mkdir -p $(BUILD_DIR)
-	@cd $(BUILD_DIR) && cmake -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) ..
+	@cmake -S . -B build -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
 build: configure
 	@cmake --build $(BUILD_DIR) -j8
 
 clean:
-	@rm -r $(BUILD_DIR)
+	@rm -rf $(BUILD_DIR)
 
 format:
-	find src/ -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i
+	find molecula/ -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i
