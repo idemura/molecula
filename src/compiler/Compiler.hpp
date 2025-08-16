@@ -1,17 +1,16 @@
 #pragma once
 
-#include <vector>
 #include <string_view>
+#include <vector>
 
 namespace molecula {
 
 class Compiler {
-public:
+ public:
   Compiler() {}
   void compile(std::string_view sql);
 
-private:
-
+ private:
 };
 
-}
+} // namespace molecula

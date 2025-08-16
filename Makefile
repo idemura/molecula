@@ -14,3 +14,6 @@ build: configure
 
 clean:
 	@rm -r $(BUILD_DIR)
+
+format:
+	find src/ -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i
