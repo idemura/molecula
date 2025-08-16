@@ -8,4 +8,4 @@ std::unique_ptr<S3AsyncClient> create(S3AsyncClientConfig* config) {
 S3AsyncClient::S3AsyncClient() {
   // Empty
 }
-}
+} // namespace molecula
