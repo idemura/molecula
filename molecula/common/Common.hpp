@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstring>
 #include <iosfwd>
 #include <memory>
 #include <span>

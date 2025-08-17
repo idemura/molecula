@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
 #include "folly/futures/Future.h"
 
 namespace molecula {
@@ -116,11 +117,11 @@ public:
 };
 
 /// HTTP client parameters.
-class HttpClientParams {
+class HttpClientConfig {
 public:
   bool reserveContentLength{true};
 };
 
-std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientParams& params);
+std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config);
 
 } // namespace molecula

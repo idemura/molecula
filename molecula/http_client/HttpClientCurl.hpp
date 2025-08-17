@@ -5,6 +5,7 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+
 #include "molecula/http_client/HttpClient.hpp"
 
 namespace molecula {
@@ -14,7 +15,7 @@ class HttpContext;
 /// Async HTTP client based on libevent.
 class HttpClientCurl final : public HttpClient {
 public:
-  HttpClientCurl(CURLM* multiHandle, const HttpClientParams& params);
+  HttpClientCurl(void* multiHandle, const HttpClientConfig& config);
   ~HttpClientCurl() override;
   folly::Future<HttpResponse> makeRequest(HttpRequest request) override;
 
@@ -29,7 +30,7 @@ private:
   int pipe_[2]{}; // Pipe for signaling
   std::atomic<bool> running_{true};
   std::thread eventThread_;
-  HttpClientParams params_;
+  HttpClientConfig config_;
 };
 
 } // namespace molecula

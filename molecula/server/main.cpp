@@ -4,6 +4,7 @@
 #include "folly/init/Init.h"
 #include "molecula/compiler/Compiler.hpp"
 #include "molecula/http_client/HttpClient.hpp"
+#include "molecula/s3/S3Client.hpp"
 #include "velox/common/base/Status.h"
 #include "velox/common/base/VeloxException.h"
 
@@ -18,7 +19,7 @@ int serverMain() {
   std::cout << "hello from mulecula v2\n";
   std::cout << "status: " << status << "\n";
 
-  auto httpClient = createHttpClientCurl(HttpClientParams{});
+  auto httpClient = createHttpClientCurl(HttpClientConfig{});
   HttpRequest request{"http://localhost:8080/"};
   request.setMethod(HttpMethod::GET);
   request.addHeader("Accept: text/html");
@@ -30,6 +31,13 @@ int serverMain() {
   for (const std::string& header : response.getHeaders()) {
     std::cout << "  " << header << "\n";
   }
+
+  auto s3ClientConfig = S3ClientConfig{
+      .httpClient = httpClient.get(),
+      .endpoint = "http://localhost:9000",
+      .accessKey = "minioadmin",
+      .secretKey = "minioadmin"};
+  auto s3Client = createS3Client(s3ClientConfig);
 
   return 0;
 }

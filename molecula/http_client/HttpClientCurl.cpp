@@ -1,5 +1,6 @@
 #include "molecula/http_client/HttpClientCurl.hpp"
 
+#include <curl/curl.h>
 #include <unistd.h>
 #include <type_traits>
 
@@ -36,18 +37,18 @@ static size_t curlHeaderCallback(char* buffer, size_t size, size_t nmemb, void* 
   return total;
 }
 
-std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientParams& params) {
+std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config) {
   std::call_once(curlInitOnce, []() { curl_global_init(CURL_GLOBAL_DEFAULT); });
 
   auto* multiHandle = curl_multi_init();
   if (!multiHandle) {
     return nullptr;
   }
-  return std::make_unique<HttpClientCurl>(multiHandle, params);
+  return std::make_unique<HttpClientCurl>(multiHandle, config);
 }
 
-HttpClientCurl::HttpClientCurl(void* multiHandle, const HttpClientParams& params)
-    : multiHandle_{multiHandle}, eventThread_{&HttpClientCurl::eventLoop, this}, params_{params} {
+HttpClientCurl::HttpClientCurl(void* multiHandle, const HttpClientConfig& config)
+    : multiHandle_{multiHandle}, eventThread_{&HttpClientCurl::eventLoop, this}, config_{config} {
   ::pipe(pipe_);
 }
 

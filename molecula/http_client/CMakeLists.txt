@@ -1,17 +1,28 @@
-add_library(molecula_http_client STATIC
+add_library(
+    molecula_http_client
+    STATIC
+
     HttpClient.cpp
     HttpClientCurl.cpp
 )
 
-target_include_directories(molecula_http_client
+target_include_directories(
+    molecula_http_client
     PRIVATE
-        ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}
 )
 
 find_package(CURL REQUIRED)
-target_link_libraries(molecula_http_client
+target_link_libraries(
+    molecula_http_client
     PRIVATE
-        CURL::libcurl
-        Folly::folly
-        molecula_common
+    CURL::libcurl
+)
+
+target_link_libraries(
+    molecula_http_client
+
+    PUBLIC
+    Folly::folly
+    molecula_common
 )
