@@ -16,4 +16,4 @@ clean:
 	@rm -rf $(BUILD_DIR)
 
 format:
-	find molecula/ -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i
+	@find molecula/ -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i

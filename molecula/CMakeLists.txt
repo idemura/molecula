@@ -1,3 +1,4 @@
 add_subdirectory(compiler)
+add_subdirectory(http_client)
 add_subdirectory(storage)
 add_subdirectory(server)
