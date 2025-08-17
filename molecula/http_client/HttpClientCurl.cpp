@@ -12,6 +12,16 @@ static size_t buffer_write_callback(char* ptr, size_t size, size_t nmemb, void* 
 
 namespace molecula {
 
+class HttpContext {
+public:
+  explicit HttpContext(HttpRequest request) : request{std::move(request)} {}
+
+  HttpRequest request;
+  curl_slist* headers{nullptr};
+  folly::Promise<HttpResponse> promise;
+  HttpBuffer buffer;
+};
+
 static_assert(std::is_move_constructible_v<HttpBuffer>);
 static_assert(std::is_move_constructible_v<HttpRequest>);
 static_assert(std::is_move_constructible_v<HttpResponse>);
@@ -19,7 +29,7 @@ static_assert(std::is_move_constructible_v<HttpContext>);
 
 static std::once_flag initOnceFlag;
 
-std::unique_ptr<HttpClient> createHttpClient(const HttpClientParams& params) {
+std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientParams& params) {
   std::call_once(initOnceFlag, []() { curl_global_init(CURL_GLOBAL_DEFAULT); });
 
   auto* multiHandle = curl_multi_init();
@@ -80,6 +90,10 @@ void HttpClientCurl::eventLoop() {
         long status = 0;
         curl_easy_getinfo(easyHandle, CURLINFO_RESPONSE_CODE, &status);
         curl_multi_remove_handle(multiHandle_, easyHandle);
+        if (context->headers) {
+          curl_slist_free_all(context->headers);
+          context->headers = nullptr;
+        }
         curl_easy_cleanup(easyHandle);
 
         context->promise.setValue(HttpResponse{status, std::move(context->buffer)});
@@ -139,9 +153,8 @@ void* HttpClientCurl::createEasyHandle(HttpContext* context) {
   }
 
   // Add headers
-  curl_slist* headers = nullptr;
   for (const std::string& header : context->request.getHeaders()) {
-    headers = curl_slist_append(headers, header.c_str());
+    context->headers = curl_slist_append(context->headers, header.c_str());
   }
 
   return easyHandle;

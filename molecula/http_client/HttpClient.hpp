@@ -11,8 +11,10 @@ namespace molecula {
 
 class HttpBuffer {
 public:
-  explicit HttpBuffer(size_t size) {
-    data_.reserve(size);
+  HttpBuffer() = default;
+
+  void reserve(size_t extraSize) {
+    data_.reserve(data_.capacity() + extraSize);
   }
 
   void append(const char* data, size_t size) {
@@ -108,6 +110,6 @@ class HttpClientParams {
 public:
 };
 
-std::unique_ptr<HttpClient> createHttpClient(const HttpClientParams& params);
+std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientParams& params);
 
 } // namespace molecula

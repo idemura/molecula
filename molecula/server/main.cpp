@@ -9,18 +9,18 @@
 
 namespace velox = facebook::velox;
 
-int main(int argc, char** argv) {
-  folly::Init init(&argc, &argv);
+namespace molecula {
 
+int serverMain() {
   auto status = velox::Status::OK();
-  auto compiler = std::make_unique<molecula::Compiler>();
+  auto compiler = std::make_unique<Compiler>();
   compiler->compile("SELECT 1");
   std::cout << "hello from mulecula v2\n";
   std::cout << "status: " << status << "\n";
 
-  auto httpClient = molecula::createHttpClient(molecula::HttpClientParams{});
-  molecula::HttpRequest request{"http://localhost:8080/"};
-  request.setMethod(molecula::HttpMethod::GET);
+  auto httpClient = createHttpClientCurl(HttpClientParams{});
+  HttpRequest request{"http://localhost:8080/"};
+  request.setMethod(HttpMethod::GET);
   request.addHeader("Accept: text/html");
   auto response = httpClient->makeRequest(std::move(request)).get();
 
@@ -28,4 +28,11 @@ int main(int argc, char** argv) {
   std::cout << "Response body: " << response.getBody().data() << "\n";
 
   return 0;
+}
+
+} // namespace molecula
+
+int main(int argc, char** argv) {
+  folly::Init init(&argc, &argv);
+  return molecula::serverMain();
 }

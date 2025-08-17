@@ -5,19 +5,11 @@
 #include <mutex>
 #include <queue>
 #include <thread>
-#include "molecula/common/Common.hpp"
 #include "molecula/http_client/HttpClient.hpp"
 
 namespace molecula {
 
-class HttpContext {
-public:
-  HttpContext(HttpRequest request) : request{std::move(request)}, buffer{0} {}
-
-  HttpRequest request;
-  folly::Promise<HttpResponse> promise;
-  HttpBuffer buffer;
-};
+class HttpContext;
 
 /// Async HTTP client based on libevent.
 class HttpClientCurl final : public HttpClient {
