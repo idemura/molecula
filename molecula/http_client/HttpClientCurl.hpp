@@ -27,8 +27,10 @@ public:
 
 private:
   void eventLoop();
+  HttpContext* takeNextFromQueue();
+  void* createEasyHandle(HttpContext* context);
 
-  CURLM* multiHandle_{nullptr};
+  void* multiHandle_{nullptr};
   std::mutex mutex_;
   std::queue<HttpContext*> queue_;
   int pipe_[2]{}; // Pipe for signaling

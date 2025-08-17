@@ -21,11 +21,23 @@ public:
   }
 
   const char* data() {
-    return data_.data();
+    if (data_.size() == 0) {
+      return nullptr;
+    } else {
+      return data_.data();
+    }
   }
 
 private:
   std::string data_;
+};
+
+enum class HttpMethod {
+  GET,
+  HEAD,
+  POST,
+  PUT,
+  DELETE,
 };
 
 class HttpRequest {
@@ -33,12 +45,21 @@ public:
   explicit HttpRequest(const char* url) : url_{url} {}
   explicit HttpRequest(std::string url) : url_{std::move(url)} {}
 
+  void setMethod(HttpMethod method) {
+    method_ = method;
+  }
+
+  HttpMethod getMethod() const {
+    return method_;
+  }
+
   const std::string& getUrl() const {
     return url_;
   }
 
 private:
   std::string url_;
+  HttpMethod method_{HttpMethod::GET};
 };
 
 class HttpResponse {
