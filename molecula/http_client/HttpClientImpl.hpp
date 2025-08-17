@@ -1,22 +1,23 @@
 #pragma once
 
-#include <event2/buffer.h>
-#include <event2/event.h>
-#include <event2/http.h>
-#include <event2/http_struct.h>
+#include <curl/curl.h>
+#include <mutex>
+#include <thread>
 #include "molecula/http_client/HttpClient.hpp"
 
 namespace molecula {
 /// Async HTTP client based on libevent.
 class HttpClientImpl final : public HttpClient {
  public:
-  explicit HttpClientImpl(event_base* base) : base_{base} {}
+  HttpClientImpl(CURLM* curlMultiHandle, const HttpClientParams& params)
+      : curlMultiHandle_{curlMultiHandle}, params_{params} {}
+
   ~HttpClientImpl() override;
 
-  void makeRequest(const char* host, int port, const char* path) override;
-  void requestDone(evhttp_request* request);
+  std::unique_ptr<HttpRequest> makeRequest(const char* url) override;
 
  private:
-  event_base* base_{nullptr};
+  CURLM* curlMultiHandle_{nullptr};
+  HttpClientParams params_;
 };
 } // namespace molecula

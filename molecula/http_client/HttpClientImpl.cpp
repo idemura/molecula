@@ -2,70 +2,58 @@
 
 #include <iostream>
 
-static void http_request_done(evhttp_request* request, void* arg) {
-  reinterpret_cast<molecula::HttpClientImpl*>(arg)->requestDone(request);
+static size_t write_callback(char* ptr, size_t size, size_t nmemb, void* arg) {
+  size_t total = size * nmemb;
+  reinterpret_cast<molecula::HttpRequest*>(arg)->appendData(ptr, total);
+  return total;
 }
 
 namespace molecula {
-std::unique_ptr<HttpClient> createHttpClient() {
-  auto base = event_base_new();
-  if (!base) {
+static std::once_flag curlGlobalInitFlag;
+std::unique_ptr<HttpClient> createHttpClient(const HttpClientParams& params) {
+  std::call_once(
+      curlGlobalInitFlag, []() { curl_global_init(CURL_GLOBAL_DEFAULT); });
+
+  auto* curlMmultiHandle = curl_multi_init();
+  if (!curlMmultiHandle) {
     return nullptr;
   }
-  return std::make_unique<HttpClientImpl>(base);
+  return std::make_unique<HttpClientImpl>(curlMmultiHandle, params);
 }
 
 HttpClientImpl::~HttpClientImpl() {
-  event_base_free(base_);
+  curl_multi_cleanup(curlMultiHandle_);
 }
 
-void HttpClientImpl::makeRequest(const char* host, int port, const char* path) {
-  // Create connection
-  auto* connection = evhttp_connection_base_new(base_, nullptr, host, port);
-  std::cerr << "Connection " << connection << " opened\n";
+std::unique_ptr<HttpRequest> HttpClientImpl::makeRequest(const char* url) {
+  auto request = std::make_unique<HttpRequest>();
+  CURL* easyHandle = curl_easy_init();
+  curl_easy_setopt(easyHandle, CURLOPT_URL, url);
+  curl_easy_setopt(easyHandle, CURLOPT_WRITEFUNCTION, write_callback);
+  curl_easy_setopt(easyHandle, CURLOPT_WRITEDATA, request.get());
+  curl_multi_add_handle(curlMultiHandle_, easyHandle);
 
-  evhttp_connection_set_closecb(
-      connection,
-      [](evhttp_connection* conn, void* arg) {
-        std::cerr << "Connection " << conn << " closed\n";
-      },
-      nullptr);
-
-  // Make request
-  auto* request = evhttp_request_new(http_request_done, this);
-  // evhttp_add_header(evhttp_request_get_output_headers(request), "Host",
-  // host);
-  evhttp_make_request(connection, request, EVHTTP_REQ_GET, path);
-
-  // Enter async loop and wait
-  event_base_dispatch(base_);
-  // event_base_loop(base_, EVLOOP_NO_EXIT_ON_EMPTY);
-
-  std::cout << "Done\n";
-  evhttp_connection_free(connection);
-}
-
-void HttpClientImpl::requestDone(evhttp_request* request) {
-  if (!request) {
-    std::cerr << "Request failed (timeout or connection error)\n";
-    return;
+  // Event loop
+  int stillRunning = 0;
+  curl_multi_perform(curlMultiHandle_, &stillRunning);
+  while (stillRunning) {
+    int numfds = 0;
+    CURLMcode mc = curl_multi_poll(curlMultiHandle_, nullptr, 0, 1000, &numfds);
+    if (mc != CURLM_OK) {
+      std::cerr << "curl_multi_poll() failed: " << curl_multi_strerror(mc)
+                << "\n";
+      break;
+    }
+    curl_multi_perform(curlMultiHandle_, &stillRunning);
   }
 
-  // Get the response buffer
-  auto* buffer = evhttp_request_get_input_buffer(request);
-  size_t bufferLength = evbuffer_get_length(buffer);
+  long status = 0;
+  curl_easy_getinfo(easyHandle, CURLINFO_RESPONSE_CODE, &status);
+  request->setHttpStatus(status);
 
-  std::cout << "HTTP status: " << evhttp_request_get_response_code(request)
-            << "\n";
-  std::cout << "Data size: " << bufferLength << "\n";
+  curl_multi_remove_handle(curlMultiHandle_, easyHandle);
+  curl_easy_cleanup(easyHandle);
 
-  auto data = std::make_unique<char[]>(bufferLength + 1);
-  evbuffer_copyout(buffer, data.get(), bufferLength);
-  data[bufferLength] = 0;
-
-  std::cout << "Response body:\n" << data.get() << "\n";
-
-  // Exit after handling one request
-  event_base_loopexit(base_, nullptr);
+  return request;
 }
 } // namespace molecula

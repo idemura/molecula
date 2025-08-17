@@ -15,8 +15,10 @@ int main(int argc, char** argv) {
   std::cout << "hello from mulecula v2\n";
   std::cout << "status: " << status << "\n";
 
-  auto httpClient = molecula::createHttpClient();
-  httpClient->makeRequest("localhost", 8080, "/");
+  auto httpClient = molecula::createHttpClient(molecula::HttpClientParams{});
+  auto request = httpClient->makeRequest("http://localhost:8080/");
+  std::cout << "HTTP status: " << request->getHttpStatus() << "\n";
+  std::cout << "Response body: " << request->getBody() << "\n";
 
   return 0;
 }
