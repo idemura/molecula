@@ -2,38 +2,61 @@
 
 #include <memory>
 #include <string>
+#include "folly/futures/Future.h"
 
 namespace molecula {
-class HttpRequest {
+class HttpBuffer {
  public:
-  void setHttpStatus(long status) {
-    httpStatus_ = status;
+  explicit HttpBuffer(size_t size) {
+    data_.reserve(size);
   }
 
-  long getHttpStatus() {
-    return httpStatus_;
+  void append(const char* data, size_t size) {
+    data_.append(data, size);
   }
 
-  void appendData(const char* data, size_t size) {
-    body_.append(data, size);
+  size_t size() const {
+    return data_.size();
   }
 
-  std::string_view getBody() {
+  const char* data() {
+    return data_.data();
+  }
+
+ private:
+  std::string data_;
+};
+
+class HttpResponse {
+ public:
+  HttpResponse(long status, HttpBuffer body)
+      : status_{status}, body_{std::move(body)} {}
+
+  void setStatus(long status) {
+    status_ = status;
+  }
+
+  long getStatus() {
+    return status_;
+  }
+
+  HttpBuffer& getBody() {
     return body_;
   }
 
  private:
-  long httpStatus_{0};
-  std::string body_;
+  long status_ = 0;
+  HttpBuffer body_;
 };
 
-/// Async HTTP client based on libevent.
+/// Async HTTP client based on libcurl.
 class HttpClient {
  public:
   virtual ~HttpClient() = default;
-  virtual std::unique_ptr<HttpRequest> makeRequest(const char* url) = 0;
+  virtual folly::Future<HttpResponse> makeRequest(const char* url) = 0;
 };
 
+/// HTTP client parameters.
 class HttpClientParams {
  public:
 };

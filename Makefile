@@ -12,6 +12,9 @@ configure:
 build: configure
 	@cmake --build $(BUILD_DIR) -j8
 
+build_only:
+	@cmake --build $(BUILD_DIR) -j8
+
 clean:
 	@rm -rf $(BUILD_DIR)
 

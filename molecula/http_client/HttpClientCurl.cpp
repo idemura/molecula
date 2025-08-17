@@ -1,15 +1,20 @@
-#include "molecula/http_client/HttpClientImpl.hpp"
+#include "molecula/http_client/HttpClientCurl.hpp"
 
 #include <iostream>
+#include <type_traits>
 
 static size_t write_callback(char* ptr, size_t size, size_t nmemb, void* arg) {
   size_t total = size * nmemb;
-  reinterpret_cast<molecula::HttpRequest*>(arg)->appendData(ptr, total);
+  reinterpret_cast<molecula::HttpBuffer*>(arg)->append(ptr, total);
   return total;
 }
 
 namespace molecula {
+static_assert(std::is_move_constructible_v<HttpBuffer>);
+static_assert(std::is_move_constructible_v<HttpResponse>);
+
 static std::once_flag curlGlobalInitFlag;
+
 std::unique_ptr<HttpClient> createHttpClient(const HttpClientParams& params) {
   std::call_once(
       curlGlobalInitFlag, []() { curl_global_init(CURL_GLOBAL_DEFAULT); });
@@ -18,19 +23,20 @@ std::unique_ptr<HttpClient> createHttpClient(const HttpClientParams& params) {
   if (!curlMmultiHandle) {
     return nullptr;
   }
-  return std::make_unique<HttpClientImpl>(curlMmultiHandle, params);
+  return std::make_unique<HttpClientCurl>(curlMmultiHandle, params);
 }
 
-HttpClientImpl::~HttpClientImpl() {
+HttpClientCurl::~HttpClientCurl() {
   curl_multi_cleanup(curlMultiHandle_);
 }
 
-std::unique_ptr<HttpRequest> HttpClientImpl::makeRequest(const char* url) {
-  auto request = std::make_unique<HttpRequest>();
+folly::Future<HttpResponse> HttpClientCurl::makeRequest(const char* url) {
+  HttpBuffer buffer{0};
+
   CURL* easyHandle = curl_easy_init();
   curl_easy_setopt(easyHandle, CURLOPT_URL, url);
   curl_easy_setopt(easyHandle, CURLOPT_WRITEFUNCTION, write_callback);
-  curl_easy_setopt(easyHandle, CURLOPT_WRITEDATA, request.get());
+  curl_easy_setopt(easyHandle, CURLOPT_WRITEDATA, &buffer);
   curl_multi_add_handle(curlMultiHandle_, easyHandle);
 
   // Event loop
@@ -49,11 +55,10 @@ std::unique_ptr<HttpRequest> HttpClientImpl::makeRequest(const char* url) {
 
   long status = 0;
   curl_easy_getinfo(easyHandle, CURLINFO_RESPONSE_CODE, &status);
-  request->setHttpStatus(status);
 
   curl_multi_remove_handle(curlMultiHandle_, easyHandle);
   curl_easy_cleanup(easyHandle);
 
-  return request;
+  return folly::makeFuture(HttpResponse(status, std::move(buffer)));
 }
 } // namespace molecula

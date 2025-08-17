@@ -7,14 +7,13 @@
 
 namespace molecula {
 /// Async HTTP client based on libevent.
-class HttpClientImpl final : public HttpClient {
+class HttpClientCurl final : public HttpClient {
  public:
-  HttpClientImpl(CURLM* curlMultiHandle, const HttpClientParams& params)
+  HttpClientCurl(CURLM* curlMultiHandle, const HttpClientParams& params)
       : curlMultiHandle_{curlMultiHandle}, params_{params} {}
 
-  ~HttpClientImpl() override;
-
-  std::unique_ptr<HttpRequest> makeRequest(const char* url) override;
+  ~HttpClientCurl() override;
+  folly::Future<HttpResponse> makeRequest(const char* url) override;
 
  private:
   CURLM* curlMultiHandle_{nullptr};
