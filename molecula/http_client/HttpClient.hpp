@@ -5,6 +5,7 @@
 #include "folly/futures/Future.h"
 
 namespace molecula {
+
 class HttpBuffer {
  public:
   explicit HttpBuffer(size_t size) {
@@ -25,6 +26,19 @@ class HttpBuffer {
 
  private:
   std::string data_;
+};
+
+class HttpRequest {
+ public:
+  explicit HttpRequest(const char* url) : url_{url} {}
+  explicit HttpRequest(std::string url) : url_{std::move(url)} {}
+
+  const std::string& getUrl() const {
+    return url_;
+  }
+
+ private:
+  std::string url_;
 };
 
 class HttpResponse {
@@ -53,7 +67,7 @@ class HttpResponse {
 class HttpClient {
  public:
   virtual ~HttpClient() = default;
-  virtual folly::Future<HttpResponse> makeRequest(const char* url) = 0;
+  virtual folly::Future<HttpResponse> makeRequest(HttpRequest request) = 0;
 };
 
 /// HTTP client parameters.
@@ -62,4 +76,5 @@ class HttpClientParams {
 };
 
 std::unique_ptr<HttpClient> createHttpClient(const HttpClientParams& params);
+
 } // namespace molecula

@@ -19,7 +19,9 @@ int main(int argc, char** argv) {
   std::cout << "status: " << status << "\n";
 
   auto httpClient = molecula::createHttpClient(molecula::HttpClientParams{});
-  auto request = httpClient->makeRequest("http://localhost:8080/").get();
+  auto request =
+      httpClient->makeRequest(molecula::HttpRequest{"http://localhost:8080/"})
+          .get();
   std::cout << "HTTP status: " << request.getStatus() << "\n";
   std::cout << "Response body: " << request.getBody().data() << "\n";
 
