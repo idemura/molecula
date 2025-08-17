@@ -1,14 +1,7 @@
 #include "molecula/http_client/HttpClientCurl.hpp"
 
 #include <unistd.h>
-#include <iostream>
 #include <type_traits>
-
-static size_t buffer_write_callback(char* ptr, size_t size, size_t nmemb, void* arg) {
-  size_t total = size * nmemb;
-  reinterpret_cast<molecula::HttpBuffer*>(arg)->append(ptr, total);
-  return total;
-}
 
 namespace molecula {
 
@@ -18,8 +11,8 @@ public:
 
   HttpRequest request;
   curl_slist* headers{nullptr};
+  HttpResponse response;
   folly::Promise<HttpResponse> promise;
-  HttpBuffer buffer;
 };
 
 static_assert(std::is_move_constructible_v<HttpBuffer>);
@@ -27,10 +20,24 @@ static_assert(std::is_move_constructible_v<HttpRequest>);
 static_assert(std::is_move_constructible_v<HttpResponse>);
 static_assert(std::is_move_constructible_v<HttpContext>);
 
-static std::once_flag initOnceFlag;
+static std::once_flag curlInitOnce;
+
+static size_t curlWriteCallback(char* buffer, size_t size, size_t nmemb, void* arg) {
+  size_t total = size * nmemb;
+  static_cast<HttpResponse*>(arg)->getBody().append(buffer, total);
+  // Must return number of bytes taken
+  return total;
+}
+
+static size_t curlHeaderCallback(char* buffer, size_t size, size_t nmemb, void* arg) {
+  size_t total = size * nmemb;
+  static_cast<HttpResponse*>(arg)->addHeader(std::string{buffer, total});
+  // Must return number of bytes taken
+  return total;
+}
 
 std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientParams& params) {
-  std::call_once(initOnceFlag, []() { curl_global_init(CURL_GLOBAL_DEFAULT); });
+  std::call_once(curlInitOnce, []() { curl_global_init(CURL_GLOBAL_DEFAULT); });
 
   auto* multiHandle = curl_multi_init();
   if (!multiHandle) {
@@ -96,7 +103,7 @@ void HttpClientCurl::eventLoop() {
         }
         curl_easy_cleanup(easyHandle);
 
-        context->promise.setValue(HttpResponse{status, std::move(context->buffer)});
+        context->promise.setValue(std::move(context->response));
         delete context;
       }
     }
@@ -131,11 +138,13 @@ void* HttpClientCurl::createEasyHandle(HttpContext* context) {
   void* easyHandle = curl_easy_init();
   curl_easy_setopt(easyHandle, CURLOPT_URL, context->request.getUrl().data());
   curl_easy_setopt(easyHandle, CURLOPT_PRIVATE, context);
-  curl_easy_setopt(easyHandle, CURLOPT_WRITEFUNCTION, &buffer_write_callback);
-  curl_easy_setopt(easyHandle, CURLOPT_WRITEDATA, &context->buffer);
+  curl_easy_setopt(easyHandle, CURLOPT_WRITEFUNCTION, &curlWriteCallback);
+  curl_easy_setopt(easyHandle, CURLOPT_WRITEDATA, &context->response);
+  curl_easy_setopt(easyHandle, CURLOPT_HEADERFUNCTION, &curlHeaderCallback);
+  curl_easy_setopt(easyHandle, CURLOPT_HEADERDATA, &context->response);
   switch (context->request.getMethod()) {
     case HttpMethod::GET:
-      curl_easy_setopt(easyHandle, CURLOPT_HTTPGET, 1L);
+      // curl_easy_setopt(easyHandle, CURLOPT_HTTPGET, 1L);
       break;
     case HttpMethod::HEAD:
       curl_easy_setopt(easyHandle, CURLOPT_CUSTOMREQUEST, "HEAD");

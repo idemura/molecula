@@ -1,4 +1,5 @@
 add_library(molecula_http_client STATIC
+    HttpClient.cpp
     HttpClientCurl.cpp
 )
 

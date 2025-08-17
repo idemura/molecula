@@ -26,6 +26,10 @@ int serverMain() {
 
   std::cout << "HTTP status: " << response.getStatus() << "\n";
   std::cout << "Response body: " << response.getBody().data() << "\n";
+  std::cout << "Response headers:\n";
+  for (const std::string& header : response.getHeaders()) {
+    std::cout << "  " << header << "\n";
+  }
 
   return 0;
 }

@@ -13,8 +13,8 @@ class HttpBuffer {
 public:
   HttpBuffer() = default;
 
-  void reserve(size_t extraSize) {
-    data_.reserve(data_.capacity() + extraSize);
+  void reserve(size_t size) {
+    data_.reserve(size);
   }
 
   void append(const char* data, size_t size) {
@@ -63,23 +63,26 @@ public:
     return method_;
   }
 
-  void addHeader(std::string header) {
-    headers_.push_back(std::move(header));
-  }
+  void addHeader(std::string header);
 
   std::span<std::string> getHeaders() {
     return headers_;
+  }
+
+  HttpBuffer& getBody() {
+    return body_;
   }
 
 private:
   std::string url_;
   HttpMethod method_{HttpMethod::GET};
   std::vector<std::string> headers_;
+  HttpBuffer body_;
 };
 
 class HttpResponse {
 public:
-  HttpResponse(long status, HttpBuffer body) : status_{status}, body_{std::move(body)} {}
+  HttpResponse() = default;
 
   void setStatus(long status) {
     status_ = status;
@@ -89,12 +92,19 @@ public:
     return status_;
   }
 
+  void addHeader(std::string header);
+
+  std::span<std::string> getHeaders() {
+    return headers_;
+  }
+
   HttpBuffer& getBody() {
     return body_;
   }
 
 private:
   long status_ = 0;
+  std::vector<std::string> headers_;
   HttpBuffer body_;
 };
 
@@ -108,6 +118,7 @@ public:
 /// HTTP client parameters.
 class HttpClientParams {
 public:
+  bool reserveContentLength{true};
 };
 
 std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientParams& params);
