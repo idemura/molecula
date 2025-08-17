@@ -7,7 +7,7 @@
 namespace molecula {
 
 class HttpBuffer {
- public:
+public:
   explicit HttpBuffer(size_t size) {
     data_.reserve(size);
   }
@@ -24,12 +24,12 @@ class HttpBuffer {
     return data_.data();
   }
 
- private:
+private:
   std::string data_;
 };
 
 class HttpRequest {
- public:
+public:
   explicit HttpRequest(const char* url) : url_{url} {}
   explicit HttpRequest(std::string url) : url_{std::move(url)} {}
 
@@ -37,14 +37,13 @@ class HttpRequest {
     return url_;
   }
 
- private:
+private:
   std::string url_;
 };
 
 class HttpResponse {
- public:
-  HttpResponse(long status, HttpBuffer body)
-      : status_{status}, body_{std::move(body)} {}
+public:
+  HttpResponse(long status, HttpBuffer body) : status_{status}, body_{std::move(body)} {}
 
   void setStatus(long status) {
     status_ = status;
@@ -58,21 +57,21 @@ class HttpResponse {
     return body_;
   }
 
- private:
+private:
   long status_ = 0;
   HttpBuffer body_;
 };
 
 /// Async HTTP client based on libcurl.
 class HttpClient {
- public:
+public:
   virtual ~HttpClient() = default;
   virtual folly::Future<HttpResponse> makeRequest(HttpRequest request) = 0;
 };
 
 /// HTTP client parameters.
 class HttpClientParams {
- public:
+public:
 };
 
 std::unique_ptr<HttpClient> createHttpClient(const HttpClientParams& params);

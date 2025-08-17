@@ -10,7 +10,7 @@
 namespace molecula {
 
 class HttpContext {
- public:
+public:
   HttpContext(HttpRequest request) : request{std::move(request)}, buffer{0} {}
 
   HttpRequest request;
@@ -20,12 +20,12 @@ class HttpContext {
 
 /// Async HTTP client based on libevent.
 class HttpClientCurl final : public HttpClient {
- public:
+public:
   HttpClientCurl(CURLM* multiHandle, const HttpClientParams& params);
   ~HttpClientCurl() override;
   folly::Future<HttpResponse> makeRequest(HttpRequest request) override;
 
- private:
+private:
   void eventLoop();
 
   CURLM* multiHandle_{nullptr};

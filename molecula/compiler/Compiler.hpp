@@ -6,11 +6,11 @@
 namespace molecula {
 
 class Compiler {
- public:
+public:
   Compiler() {}
   void compile(std::string_view sql);
 
- private:
+private:
 };
 
 } // namespace molecula

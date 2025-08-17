@@ -4,8 +4,7 @@
 #include <iostream>
 #include <type_traits>
 
-static size_t
-buffer_write_callback(char* ptr, size_t size, size_t nmemb, void* arg) {
+static size_t buffer_write_callback(char* ptr, size_t size, size_t nmemb, void* arg) {
   size_t total = size * nmemb;
   reinterpret_cast<molecula::HttpBuffer*>(arg)->append(ptr, total);
   return total;
@@ -30,12 +29,8 @@ std::unique_ptr<HttpClient> createHttpClient(const HttpClientParams& params) {
   return std::make_unique<HttpClientCurl>(multiHandle, params);
 }
 
-HttpClientCurl::HttpClientCurl(
-    CURLM* multiHandle,
-    const HttpClientParams& params)
-    : multiHandle_{multiHandle},
-      eventThread_{&HttpClientCurl::eventLoop, this},
-      params_{params} {
+HttpClientCurl::HttpClientCurl(CURLM* multiHandle, const HttpClientParams& params)
+    : multiHandle_{multiHandle}, eventThread_{&HttpClientCurl::eventLoop, this}, params_{params} {
   pipe(pipe_);
 }
 
@@ -68,8 +63,7 @@ void HttpClientCurl::eventLoop() {
 
   while (running_.load(std::memory_order_acquire)) {
     int stillRunning = 0;
-    while (curl_multi_perform(multiHandle_, &stillRunning) ==
-           CURLM_CALL_MULTI_PERFORM) {
+    while (curl_multi_perform(multiHandle_, &stillRunning) == CURLM_CALL_MULTI_PERFORM) {
       // Keep performing until no more actions are pending
     }
 
@@ -88,8 +82,7 @@ void HttpClientCurl::eventLoop() {
         curl_multi_remove_handle(multiHandle_, easyHandle);
         curl_easy_cleanup(easyHandle);
 
-        context->promise.setValue(
-            HttpResponse{status, std::move(context->buffer)});
+        context->promise.setValue(HttpResponse{status, std::move(context->buffer)});
 
         delete context;
       }
@@ -103,19 +96,16 @@ void HttpClientCurl::eventLoop() {
     {
       std::unique_lock<std::mutex> lock(mutex_);
       while (!queue_.empty()) {
-        // Every time we enqueue a new request, we write to the pipe. Read one
-        // byte back.
+        // Every time we enqueue a new request, we write to the pipe. Read one byte back.
         read(pipe_[0], buf, 1);
 
         auto* context = queue_.front();
         queue_.pop();
 
         CURL* easyHandle = curl_easy_init();
-        curl_easy_setopt(
-            easyHandle, CURLOPT_URL, context->request.getUrl().c_str());
+        curl_easy_setopt(easyHandle, CURLOPT_URL, context->request.getUrl().c_str());
         curl_easy_setopt(easyHandle, CURLOPT_PRIVATE, context);
-        curl_easy_setopt(
-            easyHandle, CURLOPT_WRITEFUNCTION, &buffer_write_callback);
+        curl_easy_setopt(easyHandle, CURLOPT_WRITEFUNCTION, &buffer_write_callback);
         curl_easy_setopt(easyHandle, CURLOPT_WRITEDATA, &context->buffer);
         curl_multi_add_handle(multiHandle_, easyHandle);
       }

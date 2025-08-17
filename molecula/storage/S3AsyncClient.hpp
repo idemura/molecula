@@ -9,10 +9,10 @@ struct S3AsyncClientConfig {
 };
 
 class S3AsyncClient {
- public:
+public:
   static std::unique_ptr<S3AsyncClient> create(S3AsyncClientConfig* config);
 
- private:
+private:
   S3AsyncClient();
 };
 } // namespace molecula
