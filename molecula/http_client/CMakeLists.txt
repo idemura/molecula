@@ -12,4 +12,5 @@ target_link_libraries(molecula_http_client
     PRIVATE
         CURL::libcurl
         Folly::folly
+        molecula_common
 )

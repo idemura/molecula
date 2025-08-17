@@ -19,9 +19,13 @@ int main(int argc, char** argv) {
   std::cout << "status: " << status << "\n";
 
   auto httpClient = molecula::createHttpClient(molecula::HttpClientParams{});
-  auto request = httpClient->makeRequest(molecula::HttpRequest{"http://localhost:8080/"}).get();
-  std::cout << "HTTP status: " << request.getStatus() << "\n";
-  std::cout << "Response body: " << request.getBody().data() << "\n";
+  molecula::HttpRequest request{"http://localhost:8080/"};
+  request.setMethod(molecula::HttpMethod::GET);
+  request.addHeader("Accept: text/html");
+  auto response = httpClient->makeRequest(std::move(request)).get();
+
+  std::cout << "HTTP status: " << response.getStatus() << "\n";
+  std::cout << "Response body: " << response.getBody().data() << "\n";
 
   return 0;
 }

@@ -75,7 +75,7 @@ void HttpClientCurl::eventLoop() {
         void* easyHandle = msg->easy_handle;
 
         HttpContext* context = nullptr;
-        curl_easy_getinfo(easyHandle, CURLINFO_PRIVATE, (void**)&context);
+        curl_easy_getinfo(easyHandle, CURLINFO_PRIVATE, &context);
 
         long status = 0;
         curl_easy_getinfo(easyHandle, CURLINFO_RESPONSE_CODE, &status);
@@ -115,7 +115,7 @@ HttpContext* HttpClientCurl::takeNextFromQueue() {
 
 void* HttpClientCurl::createEasyHandle(HttpContext* context) {
   void* easyHandle = curl_easy_init();
-  curl_easy_setopt(easyHandle, CURLOPT_URL, context->request.getUrl().c_str());
+  curl_easy_setopt(easyHandle, CURLOPT_URL, context->request.getUrl().data());
   curl_easy_setopt(easyHandle, CURLOPT_PRIVATE, context);
   curl_easy_setopt(easyHandle, CURLOPT_WRITEFUNCTION, &buffer_write_callback);
   curl_easy_setopt(easyHandle, CURLOPT_WRITEDATA, &context->buffer);
@@ -137,6 +137,13 @@ void* HttpClientCurl::createEasyHandle(HttpContext* context) {
       curl_easy_setopt(easyHandle, CURLOPT_CUSTOMREQUEST, "DELETE");
       break;
   }
+
+  // Add headers
+  curl_slist* headers = nullptr;
+  for (const std::string& header : context->request.getHeaders()) {
+    headers = curl_slist_append(headers, header.c_str());
+  }
+
   return easyHandle;
 }
 

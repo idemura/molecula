@@ -5,6 +5,7 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+#include "molecula/common/Common.hpp"
 #include "molecula/http_client/HttpClient.hpp"
 
 namespace molecula {

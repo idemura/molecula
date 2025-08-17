@@ -1,7 +1,10 @@
 #pragma once
 
 #include <memory>
+#include <span>
 #include <string>
+#include <string_view>
+#include <vector>
 #include "folly/futures/Future.h"
 
 namespace molecula {
@@ -45,6 +48,11 @@ public:
   explicit HttpRequest(const char* url) : url_{url} {}
   explicit HttpRequest(std::string url) : url_{std::move(url)} {}
 
+  // Guaranteed to return a 0-terminated string.
+  std::string_view getUrl() const {
+    return url_;
+  }
+
   void setMethod(HttpMethod method) {
     method_ = method;
   }
@@ -53,13 +61,18 @@ public:
     return method_;
   }
 
-  const std::string& getUrl() const {
-    return url_;
+  void addHeader(std::string header) {
+    headers_.push_back(std::move(header));
+  }
+
+  std::span<std::string> getHeaders() {
+    return headers_;
   }
 
 private:
   std::string url_;
   HttpMethod method_{HttpMethod::GET};
+  std::vector<std::string> headers_;
 };
 
 class HttpResponse {
