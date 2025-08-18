@@ -16,5 +16,6 @@ target_link_libraries(
     molecula_s3
 
     PUBLIC
+    molecula_common
     molecula_http_client
 )

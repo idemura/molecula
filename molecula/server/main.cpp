@@ -1,5 +1,4 @@
-#include <iostream>
-#include <memory>
+#include <glog/logging.h>
 
 #include "folly/init/Init.h"
 #include "molecula/compiler/Compiler.hpp"
@@ -16,8 +15,7 @@ int serverMain() {
   auto status = velox::Status::OK();
   auto compiler = std::make_unique<Compiler>();
   compiler->compile("SELECT 1");
-  std::cout << "hello from mulecula v2\n";
-  std::cout << "status: " << status << "\n";
+  LOG(INFO) << "Status: " << status;
 
   auto httpClient = createHttpClientCurl(HttpClientConfig{});
   HttpRequest request{"http://localhost:8080/"};
@@ -25,19 +23,21 @@ int serverMain() {
   request.addHeader("Accept: text/html");
   auto response = httpClient->makeRequest(std::move(request)).get();
 
-  std::cout << "HTTP status: " << response.getStatus() << "\n";
-  std::cout << "Response body: " << response.getBody().data() << "\n";
-  std::cout << "Response headers:\n";
+  LOG(INFO) << "HTTP status: " << response.getStatus();
+  LOG(INFO) << "Response body: " << response.getBody().data();
+  LOG(INFO) << "Response headers:\n";
   for (const std::string& header : response.getHeaders()) {
-    std::cout << "  " << header << "\n";
+    LOG(INFO) << "  " << header;
   }
 
   auto s3ClientConfig = S3ClientConfig{
-      .httpClient = httpClient.get(),
-      .endpoint = "http://localhost:9000",
-      .accessKey = "minioadmin",
-      .secretKey = "minioadmin"};
-  auto s3Client = createS3Client(s3ClientConfig);
+      .endpoint = "http://localhost:9000", .accessKey = "minioadmin", .secretKey = "minioadmin"};
+  auto s3Client = createS3Client(httpClient.get(), s3ClientConfig);
+
+  S3GetObjectReq req{"datalake", "test.txt"};
+  auto res = s3Client->getObject(req).get();
+  // LOG(INFO) << "S3 GET Object status: " << res.status;
+  // LOG(INFO) << "S3 GET Object data: " << res.data.data();
 
   return 0;
 }
@@ -45,6 +45,11 @@ int serverMain() {
 } // namespace molecula
 
 int main(int argc, char** argv) {
+  // Initialize Google logging inside
   folly::Init init(&argc, &argv);
+
+  // Optional: write logs also to stderr
+  FLAGS_logtostderr = 1;
+
   return molecula::serverMain();
 }

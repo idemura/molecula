@@ -10,3 +10,10 @@ target_include_directories(
     PRIVATE
     ${CMAKE_SOURCE_DIR}
 )
+
+find_package(glog REQUIRED)
+
+target_link_libraries(
+    molecula_common
+    PRIVATE
+    glog::glog)

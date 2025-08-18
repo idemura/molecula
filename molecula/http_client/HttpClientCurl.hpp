@@ -1,6 +1,5 @@
 #pragma once
 
-#include <curl/curl.h>
 #include <atomic>
 #include <mutex>
 #include <queue>
@@ -26,6 +25,7 @@ private:
 
   void* multiHandle_{nullptr};
   std::mutex mutex_;
+  long counter_ = 1000;
   std::queue<HttpContext*> queue_;
   int pipe_[2]{}; // Pipe for signaling
   std::atomic<bool> running_{true};

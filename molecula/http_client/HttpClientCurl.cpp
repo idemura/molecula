@@ -4,12 +4,15 @@
 #include <unistd.h>
 #include <type_traits>
 
+#include <glog/logging.h>
+
 namespace molecula {
 
 class HttpContext {
 public:
   explicit HttpContext(HttpRequest request) : request{std::move(request)} {}
 
+  long id = 0;
   HttpRequest request;
   curl_slist* headers{nullptr};
   HttpResponse response;
@@ -94,9 +97,13 @@ void HttpClientCurl::eventLoop() {
 
         HttpContext* context = nullptr;
         curl_easy_getinfo(easyHandle, CURLINFO_PRIVATE, &context);
+        LOG(INFO) << "HTTP request #" << context->id << ": Done";
 
         long status = 0;
         curl_easy_getinfo(easyHandle, CURLINFO_RESPONSE_CODE, &status);
+        context->response.setStatus(status);
+
+        // Destroy easy handle and clean up
         curl_multi_remove_handle(multiHandle_, easyHandle);
         if (context->headers) {
           curl_slist_free_all(context->headers);
@@ -136,6 +143,9 @@ HttpContext* HttpClientCurl::takeNextFromQueue() {
 }
 
 void* HttpClientCurl::createEasyHandle(HttpContext* context) {
+  context->id = counter_++;
+  LOG(INFO) << "HTTP request #" << context->id << ": Create easy handle";
+
   void* easyHandle = curl_easy_init();
   curl_easy_setopt(easyHandle, CURLOPT_URL, context->request.getUrl().data());
   curl_easy_setopt(easyHandle, CURLOPT_PRIVATE, context);
