@@ -26,16 +26,16 @@ public:
     return data_.size();
   }
 
-  const char* data() const {
-    if (data_.size() == 0) {
-      return nullptr;
-    } else {
-      return data_.data();
-    }
+  char* data() {
+    return data_.empty() ? nullptr : data_.data();
   }
 
   std::span<const char> span() const {
-    return std::span{data_.data(), data_.size()};
+    return data_;
+  }
+
+  std::span<char> span() {
+    return data_;
   }
 
   std::string_view getStringView() const {
