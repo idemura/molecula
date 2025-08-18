@@ -22,6 +22,7 @@ set(VELOX_ENABLE_SPARK_FUNCTIONS OFF CACHE BOOL "")
 find_package(CURL REQUIRED)
 find_package(GTest REQUIRED)
 find_package(glog REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 add_subdirectory(velox)
 add_subdirectory(molecula)

@@ -14,19 +14,14 @@ target_include_directories(
 )
 
 target_link_libraries(
-    molecula_common
-    PRIVATE
-    glog::glog)
-
-target_link_libraries(
     molecula_http_client
     PRIVATE
+    glog::glog
     CURL::libcurl
 )
 
 target_link_libraries(
     molecula_http_client
-
     PUBLIC
     Folly::folly
     molecula_common

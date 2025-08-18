@@ -24,7 +24,7 @@ int serverMain() {
   auto response = httpClient->makeRequest(std::move(request)).get();
 
   LOG(INFO) << "HTTP status: " << response.getStatus();
-  LOG(INFO) << "Response body: " << response.getBody().data();
+  LOG(INFO) << "Response body: " << response.getBody().getStringView();
   LOG(INFO) << "Response headers:\n";
   for (const std::string& header : response.getHeaders()) {
     LOG(INFO) << "  " << header;

@@ -1,7 +1,9 @@
 #pragma once
 
+#include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "folly/futures/Future.h"
 #include "molecula/http_client/HttpClient.hpp"
@@ -13,6 +15,22 @@ public:
   std::string_view endpoint;
   std::string_view accessKey;
   std::string_view secretKey;
+};
+
+class S3SigV4 {
+public:
+  S3SigV4(std::string_view accessKey, std::string_view secretKey, std::string_view region);
+
+  std::string sign(
+      std::string_view bucket,
+      std::string_view key,
+      std::span<std::string> headers,
+      std::span<const char> body);
+
+private:
+  std::string accessKey_;
+  std::string secretKey_;
+  std::string region_;
 };
 
 class S3GetObjectReq {

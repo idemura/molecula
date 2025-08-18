@@ -14,14 +14,16 @@ target_include_directories(
 )
 
 target_link_libraries(
-    molecula_common
+    molecula_s3
     PRIVATE
-    glog::glog)
+    glog::glog
+    OpenSSL::Crypto
+)
 
 target_link_libraries(
     molecula_s3
     PUBLIC
-    molecula_common
+    Folly::folly
     molecula_http_client
 )
 

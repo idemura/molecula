@@ -19,14 +19,14 @@ public:
   }
 
   void append(const char* data, size_t size) {
-    data_.append(data, size);
+    data_.insert(data_.end(), data, data + size);
   }
 
   size_t size() const {
     return data_.size();
   }
 
-  const char* data() {
+  const char* data() const {
     if (data_.size() == 0) {
       return nullptr;
     } else {
@@ -34,8 +34,16 @@ public:
     }
   }
 
+  std::span<const char> span() const {
+    return std::span{data_.data(), data_.size()};
+  }
+
+  std::string_view getStringView() const {
+    return std::string_view{data_.data(), data_.size()};
+  }
+
 private:
-  std::string data_;
+  std::vector<char> data_;
 };
 
 enum class HttpMethod {
