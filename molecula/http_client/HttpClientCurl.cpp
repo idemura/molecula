@@ -67,7 +67,7 @@ HttpClientCurl::~HttpClientCurl() {
 }
 
 folly::Future<HttpResponse> HttpClientCurl::makeRequest(HttpRequest request) {
-  auto* context = new HttpContext{std::move(request)};
+  void* context = new HttpContext{std::move(request)};
   // Take future before adding to the queue. Context will be deleted in the event loop. Thus,
   // we need take future before adding to the queue (or under the lock).
   auto future = context->promise.getFuture();

@@ -11,7 +11,7 @@ namespace molecula {
 
 class HttpContext;
 
-/// Async HTTP client based on libevent.
+/// Async HTTP client based on CURL.
 class HttpClientCurl final : public HttpClient {
 public:
   HttpClientCurl(void* multiHandle, const HttpClientConfig& config);
@@ -25,7 +25,7 @@ private:
 
   void* multiHandle_{nullptr};
   std::mutex mutex_;
-  long counter_ = 1000;
+  long counter_{1'000};
   std::queue<HttpContext*> queue_;
   int pipe_[2]{}; // Pipe for signaling
   std::atomic<bool> running_{true};

@@ -13,7 +13,7 @@ build: configure
 	@cmake --build $(BUILD_DIR) -j8
 
 test:
-	@ctest --test-dir build -V
+	@ctest --test-dir build --output-on-failure
 
 build_only:
 	@cmake --build $(BUILD_DIR) -j8

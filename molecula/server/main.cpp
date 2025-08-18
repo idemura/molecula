@@ -45,11 +45,8 @@ int serverMain() {
 } // namespace molecula
 
 int main(int argc, char** argv) {
-  // Initialize Google logging inside
+  // Initializes glog inside
   folly::Init init(&argc, &argv);
-
-  // Optional: write logs also to stderr
-  FLAGS_logtostderr = 1;
 
   return molecula::serverMain();
 }

@@ -109,7 +109,7 @@ private:
   HttpBuffer body_;
 };
 
-/// Async HTTP client based on libcurl.
+/// Async HTTP client.
 class HttpClient {
 public:
   virtual ~HttpClient() = default;
