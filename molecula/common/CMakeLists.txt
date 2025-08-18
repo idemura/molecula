@@ -14,7 +14,7 @@ target_include_directories(
 if(MOLECULA_BUILD_TESTS)
     add_executable(
         molecula_common_test
-        CommonTest.cpp
+        Common_Test.cpp
     )
 
     target_link_libraries(
@@ -26,7 +26,7 @@ if(MOLECULA_BUILD_TESTS)
     )
 
     add_test(
-        NAME common
+        NAME molecula_common
         COMMAND
         molecula_common_test)
 endif()

@@ -28,7 +28,7 @@ target_link_libraries(
 if(MOLECULA_BUILD_TESTS)
     add_executable(
         molecula_s3_test
-        S3ClientTest.cpp
+        S3Client_Test.cpp
     )
 
     target_link_libraries(
@@ -40,7 +40,7 @@ if(MOLECULA_BUILD_TESTS)
     )
 
     add_test(
-        NAME s3
+        NAME molecula_s3
         COMMAND
         molecula_s3_test)
 endif()

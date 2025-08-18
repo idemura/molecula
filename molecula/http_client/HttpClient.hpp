@@ -123,5 +123,6 @@ public:
 };
 
 std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config);
+std::string& lowerCaseHeader(std::string& header);
 
 } // namespace molecula

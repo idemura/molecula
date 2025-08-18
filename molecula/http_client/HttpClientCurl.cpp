@@ -43,7 +43,7 @@ static size_t curlHeaderCallback(char* buffer, size_t size, size_t nmemb, void* 
 std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config) {
   std::call_once(curlInitOnce, []() { curl_global_init(CURL_GLOBAL_DEFAULT); });
 
-  auto* multiHandle = curl_multi_init();
+  void* multiHandle = curl_multi_init();
   if (!multiHandle) {
     return nullptr;
   }
@@ -67,7 +67,7 @@ HttpClientCurl::~HttpClientCurl() {
 }
 
 folly::Future<HttpResponse> HttpClientCurl::makeRequest(HttpRequest request) {
-  void* context = new HttpContext{std::move(request)};
+  auto* context = new HttpContext{std::move(request)};
   // Take future before adding to the queue. Context will be deleted in the event loop. Thus,
   // we need take future before adding to the queue (or under the lock).
   auto future = context->promise.getFuture();
