@@ -12,6 +12,9 @@ configure:
 build: configure
 	@cmake --build $(BUILD_DIR) -j8
 
+test:
+	@ctest --test-dir build -V
+
 build_only:
 	@cmake --build $(BUILD_DIR) -j8
 

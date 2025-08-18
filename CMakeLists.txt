@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.20)
 
 project(molecula LANGUAGES CXX)
 
+enable_testing()
+
+option(MOLECULA_BUILD_TESTS "Build Molecula tests" ON)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -14,6 +18,10 @@ set(VELOX_ENABLE_BENCHMARKS OFF CACHE BOOL "")
 set(VELOX_ENABLE_HIVE_CONNECTOR OFF CACHE BOOL "")
 set(VELOX_ENABLE_TPCH_CONNECTOR OFF CACHE BOOL "")
 set(VELOX_ENABLE_SPARK_FUNCTIONS OFF CACHE BOOL "")
+
+find_package(CURL REQUIRED)
+find_package(GTest REQUIRED)
+find_package(glog REQUIRED)
 
 add_subdirectory(velox)
 add_subdirectory(molecula)
