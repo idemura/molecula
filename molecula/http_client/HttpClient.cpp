@@ -17,6 +17,22 @@ std::string& lowerCaseHeader(std::string& header) {
   return header;
 }
 
+std::string_view toStringView(HttpMethod method) {
+  switch (method) {
+    case HttpMethod::GET:
+      return "GET";
+    case HttpMethod::HEAD:
+      return "HEAD";
+    case HttpMethod::POST:
+      return "POST";
+    case HttpMethod::PUT:
+      return "PUT";
+    case HttpMethod::DELETE:
+      return "DELETE";
+  }
+  return "";
+}
+
 void HttpRequest::addHeader(std::string header) {
   lowerCaseHeader(header);
   headers_.push_back(std::move(header));

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <ctime>
 #include <span>
 #include <string>
 #include <string_view>
@@ -18,28 +17,6 @@ public:
   std::string_view endpoint;
   std::string_view accessKey;
   std::string_view secretKey;
-};
-
-class S3SigV4 {
-public:
-  S3SigV4(std::string accessKey, std::string secretKey, std::string region);
-
-  // If timestamp = 0 then current time is used.
-  void generateSigningKey(std::time_t timestamp);
-
-  std::string getSigningKey() const;
-
-  std::string sign(
-      std::string_view bucket,
-      std::string_view key,
-      std::span<std::string> headers,
-      ByteSpan body);
-
-private:
-  std::string accessKey_;
-  std::string secretKey_;
-  std::string region_;
-  std::string signingKey_;
 };
 
 class S3GetObjectReq {

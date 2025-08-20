@@ -5,6 +5,8 @@ add_library(
     S3Client.hpp
     S3ClientImpl.cpp
     S3ClientImpl.hpp
+    S3Request.cpp
+    S3Request.hpp
 )
 
 target_include_directories(
@@ -30,7 +32,7 @@ target_link_libraries(
 if(MOLECULA_BUILD_TESTS)
     add_executable(
         molecula_s3_test
-        S3Client_Test.cpp
+        S3Request_Test.cpp
     )
 
     target_link_libraries(
