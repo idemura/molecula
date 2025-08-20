@@ -144,7 +144,7 @@ HttpContext* HttpClientCurl::takeNextFromQueue() {
 
 void* HttpClientCurl::createEasyHandle(HttpContext* context) {
   context->id = counter_++;
-  // LOG(INFO) << "HTTP request #" << context->id << ": Create easy handle";
+  // LOG(INFO) << "HTTP request #" << context->id << ": Create";
 
   void* easyHandle = curl_easy_init();
   curl_easy_setopt(easyHandle, CURLOPT_URL, context->request.url.c_str());
@@ -177,7 +177,6 @@ void* HttpClientCurl::createEasyHandle(HttpContext* context) {
 
   // Add headers
   for (const std::string& header : context->request.headers.list()) {
-    LOG(INFO) << "HTTP request #" << context->id << ": Add header: " << header;
     context->headers = curl_slist_append(context->headers, header.c_str());
   }
   curl_easy_setopt(easyHandle, CURLOPT_HTTPHEADER, context->headers);
