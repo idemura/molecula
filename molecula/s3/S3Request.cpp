@@ -6,7 +6,6 @@
 
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
-#include <algorithm>
 #include <cstring>
 
 namespace molecula {
@@ -78,7 +77,7 @@ std::string S3SignerV4::getSigningKeyHex() const {
   return folly::hexlify({signingKey_, sizeof(signingKey_)});
 }
 
-std::string S3SignerV4::sign(S3Request& request, const S3Time& time) {
+void S3SignerV4::sign(S3Request& request, const S3Time& time) {
   char buffer[S3Time::kBufferSize];
 
   generateSigningKey(time);
@@ -117,7 +116,11 @@ std::string S3SignerV4::sign(S3Request& request, const S3Time& time) {
   auth.append(",Signature=");
   auth.append(signature);
 
-  return auth;
+  request.headers.add(makeHeader("authorization", auth));
+}
+
+void S3Request::setHost(std::string host) {
+  host_ = std::move(host);
 }
 
 void S3Request::setPath(std::string path) {
@@ -131,13 +134,13 @@ void S3Request::setPath(std::string path) {
   }
 }
 
-void S3Request::addHeader(std::string header) {
-  headers_.push_back(std::move(header));
+void S3Request::setQuery(std::string query) {
+  query_ = std::move(query);
 }
 
 void S3Request::appendHeaderNames(std::string& output) const {
   bool semicolon = false;
-  for (const std::string& header : headers_) {
+  for (const std::string& header : headers.list()) {
     if (semicolon) {
       output.append(";");
     } else {
@@ -153,18 +156,15 @@ void S3Request::appendHeaderNames(std::string& output) const {
 }
 
 void S3Request::prepareToSign(const S3Time& time) {
-  bodyHash_ = cryptoSha256Hex(body_);
-
-  addHeader(makeHeader("host", host_));
   char buffer[S3Time::kBufferSize];
-  addHeader(makeHeader("x-amz-date", time.getDateTime(buffer)));
-  addHeader(makeHeader("x-amz-content-sha256", bodyHash_));
 
-  for (std::string& header : headers_) {
-    lowerCaseHeader(header);
-  }
+  bodyHash_ = cryptoSha256Hex(body);
 
-  std::sort(headers_.begin(), headers_.end());
+  headers.add(makeHeader("host", host_));
+  headers.add(makeHeader("x-amz-date", time.getDateTime(buffer)));
+  headers.add(makeHeader("x-amz-content-sha256", bodyHash_));
+
+  headers.sort();
 }
 
 std::string S3Request::getRequestTextToHash() const {
@@ -172,7 +172,7 @@ std::string S3Request::getRequestTextToHash() const {
   output.reserve(256);
 
   // All path element must be URL-encoded and canonical.
-  output.append(toStringView(method_));
+  output.append(getMethodName(method));
   output.append("\n");
   output.append(path_);
   output.append("\n");
@@ -180,7 +180,7 @@ std::string S3Request::getRequestTextToHash() const {
   output.append("\n");
 
   // Add headers
-  for (const std::string& header : headers_) {
+  for (const std::string& header : headers.list()) {
     output.append(header).append("\n");
   }
   output.append("\n");

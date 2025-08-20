@@ -23,7 +23,7 @@ private:
   HttpContext* takeNextFromQueue();
   void* createEasyHandle(HttpContext* context);
 
-  void* multiHandle_{nullptr};
+  void* multiHandle_{};
   std::mutex mutex_;
   long counter_{1'000};
   std::queue<HttpContext*> queue_;

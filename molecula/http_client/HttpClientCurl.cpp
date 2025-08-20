@@ -12,13 +12,14 @@ class HttpContext {
 public:
   explicit HttpContext(HttpRequest request) : request{std::move(request)} {}
 
-  long id = 0;
+  long id{};
   HttpRequest request;
-  curl_slist* headers{nullptr};
+  curl_slist* headers{};
   HttpResponse response;
   folly::Promise<HttpResponse> promise;
 };
 
+static_assert(std::is_move_constructible_v<HttpHeaders>);
 static_assert(std::is_move_constructible_v<HttpRequest>);
 static_assert(std::is_move_constructible_v<HttpResponse>);
 static_assert(std::is_move_constructible_v<HttpContext>);
@@ -27,14 +28,14 @@ static std::once_flag curlInitOnce;
 
 static size_t curlWriteCallback(char* buffer, size_t size, size_t nmemb, void* arg) {
   size_t total = size * nmemb;
-  static_cast<HttpResponse*>(arg)->getBody().append(buffer, total);
+  static_cast<HttpResponse*>(arg)->appendToBody(buffer, total);
   // Must return number of bytes taken
   return total;
 }
 
 static size_t curlHeaderCallback(char* buffer, size_t size, size_t nmemb, void* arg) {
   size_t total = size * nmemb;
-  static_cast<HttpResponse*>(arg)->addHeader(std::string{buffer, total});
+  static_cast<HttpResponse*>(arg)->headers.add(std::string{buffer, total});
   // Must return number of bytes taken
   return total;
 }
@@ -96,11 +97,11 @@ void HttpClientCurl::eventLoop() {
 
         HttpContext* context = nullptr;
         curl_easy_getinfo(easyHandle, CURLINFO_PRIVATE, &context);
-        LOG(INFO) << "HTTP request #" << context->id << ": Done";
+        // LOG(INFO) << "HTTP request #" << context->id << ": Done";
 
         long status = 0;
         curl_easy_getinfo(easyHandle, CURLINFO_RESPONSE_CODE, &status);
-        context->response.setStatus(status);
+        context->response.status = status;
 
         // Destroy easy handle and clean up
         curl_multi_remove_handle(multiHandle_, easyHandle);
@@ -143,16 +144,16 @@ HttpContext* HttpClientCurl::takeNextFromQueue() {
 
 void* HttpClientCurl::createEasyHandle(HttpContext* context) {
   context->id = counter_++;
-  LOG(INFO) << "HTTP request #" << context->id << ": Create easy handle";
+  // LOG(INFO) << "HTTP request #" << context->id << ": Create easy handle";
 
   void* easyHandle = curl_easy_init();
-  curl_easy_setopt(easyHandle, CURLOPT_URL, context->request.getUrl().data());
+  curl_easy_setopt(easyHandle, CURLOPT_URL, context->request.url.c_str());
   curl_easy_setopt(easyHandle, CURLOPT_PRIVATE, context);
   curl_easy_setopt(easyHandle, CURLOPT_WRITEFUNCTION, &curlWriteCallback);
   curl_easy_setopt(easyHandle, CURLOPT_WRITEDATA, &context->response);
   curl_easy_setopt(easyHandle, CURLOPT_HEADERFUNCTION, &curlHeaderCallback);
   curl_easy_setopt(easyHandle, CURLOPT_HEADERDATA, &context->response);
-  switch (context->request.getMethod()) {
+  switch (context->request.method) {
     case HttpMethod::GET:
       // curl_easy_setopt(easyHandle, CURLOPT_HTTPGET, 1L);
       break;
@@ -161,13 +162,13 @@ void* HttpClientCurl::createEasyHandle(HttpContext* context) {
       break;
     case HttpMethod::POST:
       curl_easy_setopt(easyHandle, CURLOPT_POST, 1L);
-      curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDS, context->request.getBody().data());
-      curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDSIZE, context->request.getBody().size());
+      curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDS, context->request.body.data());
+      curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDSIZE, context->request.body.size());
       break;
     case HttpMethod::PUT:
       curl_easy_setopt(easyHandle, CURLOPT_CUSTOMREQUEST, "PUT");
-      curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDS, context->request.getBody().data());
-      curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDSIZE, context->request.getBody().size());
+      curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDS, context->request.body.data());
+      curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDSIZE, context->request.body.size());
       break;
     case HttpMethod::DELETE:
       curl_easy_setopt(easyHandle, CURLOPT_CUSTOMREQUEST, "DELETE");
@@ -175,7 +176,8 @@ void* HttpClientCurl::createEasyHandle(HttpContext* context) {
   }
 
   // Add headers
-  for (const std::string& header : context->request.getHeaders()) {
+  for (const std::string& header : context->request.headers.list()) {
+    LOG(INFO) << "HTTP request #" << context->id << ": Add header: " << header;
     context->headers = curl_slist_append(context->headers, header.c_str());
   }
   curl_easy_setopt(easyHandle, CURLOPT_HTTPHEADER, context->headers);

@@ -21,12 +21,12 @@ GTEST_TEST(S3, S3Time) {
 
 GTEST_TEST(S3, S3RequestPrepareToSign) {
   S3Request request;
-  request.setMethod(HttpMethod::GET);
+  request.method = HttpMethod::GET;
   request.setHost("localhost");
   request.setPath("/bucket/object/name");
-  request.addHeader("No-Colon");
-  request.addHeader("My-Header:V2");
-  request.addHeader("name:V1");
+  request.headers.add("No-Colon");
+  request.headers.add("My-Header:V2");
+  request.headers.add("name:V1");
   request.prepareToSign(S3Time{1'755'675'060L});
 
   std::string headers;
@@ -54,15 +54,16 @@ GTEST_TEST(S3, S3SignerV4_SigningKey) {
 
 // Amazon example
 GTEST_TEST(S3Request, S3SignerV4_SigningKey) {
-  S3SignerV4 sig{kAccessKey, kSecretKey, "us-east-1"};
+  S3SignerV4 signer{kAccessKey, kSecretKey, "us-east-1"};
 
   S3Request request;
-  request.setMethod(HttpMethod::GET);
+  request.method = HttpMethod::GET;
   request.setHost("examplebucket.s3.amazonaws.com");
   request.setPath("/test.txt");
-  request.addHeader("range:bytes=0-9");
+  request.headers.add("range:bytes=0-9");
+  signer.sign(request, S3Time{1'369'353'600L});
   EXPECT_EQ(
-      sig.sign(request, S3Time{1'369'353'600L}),
+      request.headers.get("authorization"),
       "AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,SignedHeaders=host;range;x-amz-content-sha256;x-amz-date,Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41");
 }
 

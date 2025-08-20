@@ -10,8 +10,6 @@
 
 namespace molecula {
 
-using ByteSpan = std::span<const char>;
-
 class S3Time {
 public:
   static constexpr size_t kBufferSize = 24;
@@ -30,17 +28,11 @@ private:
 // S3 request.
 class S3Request {
 public:
-  void setMethod(HttpMethod method) {
-    method_ = method;
-  }
+  HttpHeaders headers;
+  HttpMethod method{HttpMethod::GET};
+  ByteSpan body;
 
-  HttpMethod getMethod() const {
-    return method_;
-  }
-
-  void setHost(std::string host) {
-    host_ = std::move(host);
-  }
+  void setHost(std::string host);
 
   std::string_view getHost() const {
     return host_;
@@ -52,32 +44,16 @@ public:
     return path_;
   }
 
-  void setQuery(std::string query) {
-    query_ = std::move(query);
-  }
+  void setQuery(std::string query);
 
   std::string_view getQuery() const {
     return query_;
   }
 
-  void setBody(ByteSpan body) {
-    body_ = body;
-  }
-
-  ByteSpan getBody() const {
-    return body_;
-  }
-
-  void addHeader(std::string header);
-
-  std::span<std::string> getHeaders() {
-    return headers_;
-  }
-
   void prepareToSign(const S3Time& time);
   void appendHeaderNames(std::string& output) const;
 
-  // First, canonizalize should be called.
+  // @prepareToSign should be called first.
   std::string getRequestTextToHash() const;
 
   std::string getRequestHash() const;
@@ -87,12 +63,9 @@ public:
   }
 
 private:
-  HttpMethod method_{HttpMethod::GET};
   std::string host_;
   std::string path_;
   std::string query_;
-  std::vector<std::string> headers_;
-  ByteSpan body_;
   std::string bodyHash_;
 };
 
@@ -108,7 +81,7 @@ public:
 
   std::string getSigningKeyHex() const;
 
-  std::string sign(S3Request& request, const S3Time& time);
+  void sign(S3Request& request, const S3Time& time);
 
 private:
   std::string accessKey_;

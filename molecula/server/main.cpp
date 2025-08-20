@@ -19,15 +19,15 @@ int serverMain() {
 
   auto httpClient = createHttpClientCurl(HttpClientConfig{});
   HttpRequest request;
-  request.setUrl("http://localhost:8080/");
-  request.setMethod(HttpMethod::GET);
-  request.addHeader("Accept: text/html");
+  request.url = "http://localhost:8080/";
+  request.method = HttpMethod::GET;
+  request.headers.add("Accept: text/html");
   auto response = httpClient->makeRequest(std::move(request)).get();
 
-  LOG(INFO) << "HTTP status: " << response.getStatus();
-  LOG(INFO) << "Response body: " << response.getBody().view();
+  LOG(INFO) << "HTTP status: " << response.status;
+  LOG(INFO) << "Response body: " << response.body.view();
   LOG(INFO) << "Response headers:\n";
-  for (const std::string& header : response.getHeaders()) {
+  for (const std::string& header : response.headers.list()) {
     LOG(INFO) << "  " << header;
   }
 
@@ -39,10 +39,10 @@ int serverMain() {
   auto s3Client = createS3Client(httpClient.get(), s3ClientConfig);
 
   // S3GetObjectRequest req{"datalake", "poem.txt"};
-  // S3GetObjectRequest req{"datalake", "my/kitty/elsa"};
-  // auto res = s3Client->getObject(req).get();
-  // LOG(INFO) << "S3 GET Object status: " << res.status;
-  // LOG(INFO) << "S3 GET Object data: " << res.data.view();
+  S3GetObjectRequest req{"datalake", "my/kitty/elsa"};
+  auto res = s3Client->getObject(req).get();
+  LOG(INFO) << "S3 GET Object status: " << res.status;
+  LOG(INFO) << "S3 GET Object data: " << res.data.view();
 
   S3GetObjectInfoRequest req2{"datalake", "my/kitty/elsa"};
   auto res2 = s3Client->getObjectInfo(req2).get();

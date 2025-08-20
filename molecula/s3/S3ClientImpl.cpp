@@ -43,25 +43,27 @@ HttpRequest S3ClientImpl::createHttpRequest(S3Request& request) const {
   }
 
   HttpRequest httpRequest;
-  httpRequest.setUrl(std::move(url));
-  httpRequest.setMethod(request.getMethod());
-  for (auto& header : request.getHeaders()) {
-    httpRequest.addHeader(std::move(header));
+  httpRequest.url = std::move(url);
+  httpRequest.method = request.method;
+  LOG(INFO) << "add headers";
+  for (std::string& header : request.headers.list()) {
+    httpRequest.headers.add(std::move(header));
   }
+  LOG(INFO) << "add headers END";
   return httpRequest;
 }
 
 folly::Future<S3GetObjectInfo> S3ClientImpl::getObjectInfo(const S3GetObjectInfoRequest& req) {
   S3Time time;
 
-  // Prepare S3 request
+  // Prepare S3 request and sign it
   S3Request s3Req;
-  s3Req.setMethod(HttpMethod::HEAD);
+  s3Req.method = HttpMethod::HEAD;
   setObject(s3Req, req.bucket, req.key);
+  signer_.sign(s3Req, time);
 
-  // Make HTTP request, sign it and send.
+  // Make HTTP request
   HttpRequest request = createHttpRequest(s3Req);
-  request.addHeader(makeHeader("authorization", signer_.sign(s3Req, time)));
   return httpClient_->makeRequest(std::move(request)).thenValue([](HttpResponse response) {
     return S3GetObjectInfo{std::move(response)};
   });
@@ -70,14 +72,14 @@ folly::Future<S3GetObjectInfo> S3ClientImpl::getObjectInfo(const S3GetObjectInfo
 folly::Future<S3GetObject> S3ClientImpl::getObject(const S3GetObjectRequest& req) {
   S3Time time;
 
-  // Prepare S3 request
+  // Prepare S3 request and sign it
   S3Request s3Req;
-  s3Req.setMethod(HttpMethod::GET);
+  s3Req.method = HttpMethod::GET;
   setObject(s3Req, req.bucket, req.key);
+  signer_.sign(s3Req, time);
 
-  // Make HTTP request, sign it and send.
+  // Make HTTP request
   HttpRequest request = createHttpRequest(s3Req);
-  request.addHeader(makeHeader("authorization", signer_.sign(s3Req, time)));
   return httpClient_->makeRequest(std::move(request)).thenValue([](HttpResponse response) {
     return S3GetObject{std::move(response)};
   });

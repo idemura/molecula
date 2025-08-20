@@ -21,76 +21,34 @@ enum class HttpMethod {
   DELETE,
 };
 
-class HttpRequest {
+class HttpHeaders {
 public:
-  HttpRequest() = default;
-
-  void setUrl(std::string url) {
-    url_ = std::move(url);
-  }
-
-  // Guaranteed to return a 0-terminated string.
-  std::string_view getUrl() const {
-    return url_;
-  }
-
-  void setMethod(HttpMethod method) {
-    method_ = method;
-  }
-
-  HttpMethod getMethod() const {
-    return method_;
-  }
-
-  void addHeader(std::string header);
-
-  std::span<std::string> getHeaders() {
-    return headers_;
-  }
-
-  void setBody(ByteBuffer body) {
-    body_ = std::move(body);
-  }
-
-  ByteBuffer& getBody() {
-    return body_;
-  }
+  void add(std::string header);
+  void sort();
+  std::span<std::string> list();
+  std::span<const std::string> list() const;
+  std::string_view get(std::string_view name) const;
+  size_t getContentLength() const;
 
 private:
-  std::string url_;
-  HttpMethod method_{HttpMethod::GET};
   std::vector<std::string> headers_;
-  ByteBuffer body_;
+};
+
+class HttpRequest {
+public:
+  std::string url;
+  HttpMethod method{HttpMethod::GET};
+  HttpHeaders headers;
+  ByteBuffer body;
 };
 
 class HttpResponse {
 public:
-  HttpResponse() = default;
+  long status{};
+  HttpHeaders headers;
+  ByteBuffer body;
 
-  void setStatus(long status) {
-    status_ = status;
-  }
-
-  long getStatus() {
-    return status_;
-  }
-
-  void addHeader(std::string header);
-
-  std::span<std::string> getHeaders() {
-    return headers_;
-  }
-
-  std::string_view getHeaderValue(std::string_view name) const;
-
-  ByteBuffer& getBody() {
-    return body_;
-  }
-
-private:
-  long status_ = 0;
-  std::vector<std::string> headers_;
-  ByteBuffer body_;
+  void appendToBody(const char* data, size_t size);
 };
 
 /// Async HTTP client.
@@ -107,8 +65,8 @@ public:
 };
 
 std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config);
-std::string& lowerCaseHeader(std::string& header);
-std::string_view toStringView(HttpMethod method);
-std::string makeHeader(const char* namez, std::string_view value);
+std::string makeHeader(std::string_view name, std::string_view value);
+void lowerCaseHeader(std::string& header);
+std::string_view getMethodName(HttpMethod method);
 
 } // namespace molecula

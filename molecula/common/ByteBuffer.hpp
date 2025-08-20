@@ -6,6 +6,8 @@
 
 namespace molecula {
 
+using ByteSpan = std::span<const char>;
+
 class ByteBuffer {
 public:
   ByteBuffer() = default;
@@ -15,7 +17,7 @@ public:
   ByteBuffer& operator=(const ByteBuffer&) = delete;
 
   ByteBuffer(ByteBuffer&& other) noexcept = default;
-  ByteBuffer& operator=(ByteBuffer&&) = default;
+  ByteBuffer& operator=(ByteBuffer&&) noexcept = default;
 
   void reserve(size_t capacity);
   void append(const char* data, size_t size);
@@ -25,8 +27,12 @@ public:
     size_ = 0;
   }
 
-  size_t size() const noexcept {
+  size_t size() const {
     return size_;
+  }
+
+  size_t capacity() const {
+    return capacity_;
   }
 
   char* data() {
@@ -37,7 +43,7 @@ public:
     return std::span<char>{data_.get(), size_};
   }
 
-  std::string_view view() const noexcept {
+  std::string_view view() const {
     return std::string_view{data_.get(), size_};
   }
 

@@ -10,8 +10,6 @@
 
 namespace molecula {
 
-using ByteSpan = std::span<const char>;
-
 class S3ClientConfig {
 public:
   std::string_view endpoint;
@@ -33,9 +31,9 @@ public:
 class S3GetObjectInfo {
 public:
   explicit S3GetObjectInfo(HttpResponse response)
-      : status{response.getStatus()}, etag{response.getHeaderValue("etag")} {}
+      : status{response.status}, etag{response.headers.get("etag")} {}
 
-  long status{0};
+  long status{};
   std::string etag;
 };
 
@@ -56,9 +54,9 @@ public:
 class S3GetObject {
 public:
   explicit S3GetObject(HttpResponse response)
-      : status{response.getStatus()}, data{std::move(response.getBody())} {}
+      : status{response.status}, data{std::move(response.body)} {}
 
-  long status{0};
+  long status{};
   ByteBuffer data;
 };
 

@@ -19,7 +19,7 @@ private:
   void setObject(S3Request& request, std::string_view bucket, std::string_view key) const;
   HttpRequest createHttpRequest(S3Request& request) const;
 
-  HttpClient* httpClient_{nullptr};
+  HttpClient* httpClient_{};
   folly::Uri endpoint_;
   S3SignerV4 signer_;
   S3ClientConfig config_;
