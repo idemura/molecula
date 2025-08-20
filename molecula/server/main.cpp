@@ -18,7 +18,8 @@ int serverMain() {
   LOG(INFO) << "Status: " << status;
 
   auto httpClient = createHttpClientCurl(HttpClientConfig{});
-  HttpRequest request{"http://localhost:8080/"};
+  HttpRequest request;
+  request.setUrl("http://localhost:8080/");
   request.setMethod(HttpMethod::GET);
   request.addHeader("Accept: text/html");
   auto response = httpClient->makeRequest(std::move(request)).get();
@@ -37,11 +38,16 @@ int serverMain() {
       .region = "us-east-1"};
   auto s3Client = createS3Client(httpClient.get(), s3ClientConfig);
 
-  // S3GetObjectReq req{"datalake", "poem.txt"};
-  S3GetObjectReq req{"datalake", "my/kitty/elsa"};
-  auto res = s3Client->getObject(req).get();
-  LOG(INFO) << "S3 GET Object status: " << res.status;
-  LOG(INFO) << "S3 GET Object data: " << res.data.view();
+  // S3GetObjectRequest req{"datalake", "poem.txt"};
+  // S3GetObjectRequest req{"datalake", "my/kitty/elsa"};
+  // auto res = s3Client->getObject(req).get();
+  // LOG(INFO) << "S3 GET Object status: " << res.status;
+  // LOG(INFO) << "S3 GET Object data: " << res.data.view();
+
+  S3GetObjectInfoRequest req2{"datalake", "my/kitty/elsa"};
+  auto res2 = s3Client->getObjectInfo(req2).get();
+  LOG(INFO) << "S3 GET Object Info status: " << res2.status;
+  LOG(INFO) << "S3 GET Object Info etag: " << res2.etag;
 
   return 0;
 }

@@ -21,24 +21,44 @@ public:
   bool pathStyle{true};
 };
 
-class S3GetObjectReq {
+class S3GetObjectInfoRequest {
+public:
+  std::string_view bucket;
+  std::string_view key;
+
+  S3GetObjectInfoRequest(std::string_view bucket, std::string_view key)
+      : bucket{bucket}, key{key} {}
+};
+
+class S3GetObjectInfo {
+public:
+  explicit S3GetObjectInfo(HttpResponse response)
+      : status{response.getStatus()}, etag{response.getHeaderValue("etag")} {}
+
+  long status{0};
+  std::string etag;
+};
+
+class S3GetObjectRequest {
 public:
   std::string_view bucket;
   std::string_view key;
   long range[2]{};
 
-  S3GetObjectReq(std::string_view bucket, std::string_view key) : bucket{bucket}, key{key} {}
+  S3GetObjectRequest(std::string_view bucket, std::string_view key) : bucket{bucket}, key{key} {}
 
-  S3GetObjectReq& setRange(long begin, long end) {
+  void setRange(long begin, long end) {
     range[0] = begin;
     range[1] = end;
-    return *this;
   }
 };
 
-class S3GetObjectRes {
+class S3GetObject {
 public:
-  long status = 0;
+  explicit S3GetObject(HttpResponse response)
+      : status{response.getStatus()}, data{std::move(response.getBody())} {}
+
+  long status{0};
   ByteBuffer data;
 };
 
@@ -46,7 +66,8 @@ public:
 class S3Client {
 public:
   virtual ~S3Client() = default;
-  virtual folly::Future<S3GetObjectRes> getObject(const S3GetObjectReq& req) = 0;
+  virtual folly::Future<S3GetObjectInfo> getObjectInfo(const S3GetObjectInfoRequest& req) = 0;
+  virtual folly::Future<S3GetObject> getObject(const S3GetObjectRequest& req) = 0;
 };
 
 std::unique_ptr<S3Client> createS3Client(HttpClient* httpClient, const S3ClientConfig& config);

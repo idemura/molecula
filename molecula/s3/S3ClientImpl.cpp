@@ -25,7 +25,7 @@ void S3ClientImpl::setObject(S3Request& request, std::string_view bucket, std::s
   }
 }
 
-std::string S3ClientImpl::buildUrl(const S3Request& request) const {
+HttpRequest S3ClientImpl::createHttpRequest(S3Request& request) const {
   std::string url;
   url.append(endpoint_.scheme());
   url.append("://");
@@ -41,29 +41,46 @@ std::string S3ClientImpl::buildUrl(const S3Request& request) const {
     url.append("?");
     url.append(request.getQuery());
   }
-  return url;
+
+  HttpRequest httpRequest;
+  httpRequest.setUrl(std::move(url));
+  httpRequest.setMethod(request.getMethod());
+  for (auto& header : request.getHeaders()) {
+    httpRequest.addHeader(std::move(header));
+  }
+  return httpRequest;
 }
 
-folly::Future<S3GetObjectRes> S3ClientImpl::getObject(const S3GetObjectReq& req) {
+folly::Future<S3GetObjectInfo> S3ClientImpl::getObjectInfo(const S3GetObjectInfoRequest& req) {
   S3Time time;
 
+  // Prepare S3 request
+  S3Request s3Req;
+  s3Req.setMethod(HttpMethod::HEAD);
+  setObject(s3Req, req.bucket, req.key);
+
+  // Make HTTP request, sign it and send.
+  HttpRequest request = createHttpRequest(s3Req);
+  request.addHeader(makeHeader("authorization", signer_.sign(s3Req, time)));
+  return httpClient_->makeRequest(std::move(request)).thenValue([](HttpResponse response) {
+    return S3GetObjectInfo{std::move(response)};
+  });
+}
+
+folly::Future<S3GetObject> S3ClientImpl::getObject(const S3GetObjectRequest& req) {
+  S3Time time;
+
+  // Prepare S3 request
   S3Request s3Req;
   s3Req.setMethod(HttpMethod::GET);
   setObject(s3Req, req.bucket, req.key);
 
-  std::string auth = signer_.sign(s3Req, time);
-
-  // Build HTTP request URL
-  HttpRequest request{buildUrl(s3Req)};
-  request.setMethod(HttpMethod::GET);
-  for (auto& header : s3Req.getHeaders()) {
-    request.addHeader(std::move(header));
-  }
-  request.addHeader(makeHeader("authorization", auth));
-
-  auto response = httpClient_->makeRequest(std::move(request)).get();
-  return folly::Future<S3GetObjectRes>(
-      S3GetObjectRes{.status = response.getStatus(), .data = std::move(response.getBody())});
+  // Make HTTP request, sign it and send.
+  HttpRequest request = createHttpRequest(s3Req);
+  request.addHeader(makeHeader("authorization", signer_.sign(s3Req, time)));
+  return httpClient_->makeRequest(std::move(request)).thenValue([](HttpResponse response) {
+    return S3GetObject{std::move(response)};
+  });
 }
 
 } // namespace molecula

@@ -14,4 +14,23 @@ GTEST_TEST(HttpClient, lowerCaseHeader) {
   EXPECT_EQ(lowerCaseHeader(header), "nocolon");
 }
 
+GTEST_TEST(HttpClient, HttpResponse) {
+  HttpResponse response;
+  EXPECT_EQ(response.getStatus(), 0);
+  response.setStatus(200);
+  EXPECT_EQ(response.getStatus(), 200);
+
+  response.addHeader("Hdr-Name: Value.1");
+  response.addHeader("Hdr: Value.2");
+  response.addHeader("hdr-Plus: Value.3");
+
+  EXPECT_EQ(response.getHeaderValue("hdr-name"), "Value.1");
+  EXPECT_EQ(response.getHeaderValue("hdr"), "Value.2");
+  EXPECT_EQ(response.getHeaderValue("hdr-plus"), "Value.3");
+
+  EXPECT_EQ(response.getHeaderValue("Hdr-Name"), "");
+  EXPECT_EQ(response.getHeaderValue("Hdr"), "");
+  EXPECT_EQ(response.getHeaderValue("hdr-Plus"), "");
+}
+
 } // namespace molecula

@@ -34,7 +34,7 @@ public:
     method_ = method;
   }
 
-  HttpMethod getMethod(HttpMethod method) const {
+  HttpMethod getMethod() const {
     return method_;
   }
 

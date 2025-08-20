@@ -55,6 +55,26 @@ void HttpResponse::addHeader(std::string header) {
   headers_.push_back(std::move(header));
 }
 
+std::string_view HttpResponse::getHeaderValue(std::string_view name) const {
+  for (const std::string& header : headers_) {
+    if (header.starts_with(name)) {
+      size_t i = name.size();
+      if (i == header.size()) {
+        return {};
+      }
+      if (header[i] != ':') {
+        continue; // Not found yet
+      }
+      ++i; // Skip ':'
+      while (i < header.size() && std::isspace(header[i])) {
+        ++i;
+      }
+      return std::string_view{header}.substr(i);
+    }
+  }
+  return {};
+}
+
 std::string makeHeader(const char* namez, std::string_view value) {
   std::string header;
   std::string_view name{namez};

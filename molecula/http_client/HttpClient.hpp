@@ -23,8 +23,11 @@ enum class HttpMethod {
 
 class HttpRequest {
 public:
-  explicit HttpRequest(const char* url) : url_{url} {}
-  explicit HttpRequest(std::string url) : url_{std::move(url)} {}
+  HttpRequest() = default;
+
+  void setUrl(std::string url) {
+    url_ = std::move(url);
+  }
 
   // Guaranteed to return a 0-terminated string.
   std::string_view getUrl() const {
@@ -77,6 +80,8 @@ public:
   std::span<std::string> getHeaders() {
     return headers_;
   }
+
+  std::string_view getHeaderValue(std::string_view name) const;
 
   ByteBuffer& getBody() {
     return body_;
