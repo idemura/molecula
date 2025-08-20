@@ -4,7 +4,6 @@
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
 #include <cstring>
-#include <ctime>
 
 #include "folly/String.h"
 
@@ -29,7 +28,7 @@ S3SigV4::S3SigV4(std::string accessKey, std::string secretKey, std::string regio
       secretKey_{std::move(secretKey)},
       region_{std::move(region)} {}
 
-void S3SigV4::generateSigningKey() {
+void S3SigV4::generateSigningKey(std::time_t timestamp) {
   char keys[2][EVP_MAX_MD_SIZE];
 
   // Initalize first key with "AWS4" + secret key
@@ -41,7 +40,10 @@ void S3SigV4::generateSigningKey() {
   std::string_view key{keys[0], 4 + secretKey_.size()};
 
   // Get current date in YYYYMMDD format
-  auto timestamp = std::time(nullptr);
+  if (timestamp == 0) {
+    timestamp = std::time(nullptr);
+  }
+  LOG(INFO) << "Current timestamp: " << timestamp;
   std::tm gm{/* zero init */};
   ::gmtime_r(&timestamp, &gm);
   char date[16];
@@ -63,7 +65,7 @@ std::string S3SigV4::sign(
     std::string_view bucket,
     std::string_view key,
     std::span<std::string> headers,
-    std::span<const char> body) {
+    ByteSpan body) {
   return {};
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ctime>
 #include <span>
 #include <string>
 #include <string_view>
@@ -9,6 +10,8 @@
 #include "molecula/http_client/HttpClient.hpp"
 
 namespace molecula {
+
+using ByteSpan = std::span<const char>;
 
 class S3ClientConfig {
 public:
@@ -21,7 +24,8 @@ class S3SigV4 {
 public:
   S3SigV4(std::string accessKey, std::string secretKey, std::string region);
 
-  void generateSigningKey();
+  // If timestamp = 0 then current time is used.
+  void generateSigningKey(std::time_t timestamp);
 
   std::string getSigningKey() const;
 
@@ -29,7 +33,7 @@ public:
       std::string_view bucket,
       std::string_view key,
       std::span<std::string> headers,
-      std::span<const char> body);
+      ByteSpan body);
 
 private:
   std::string accessKey_;
