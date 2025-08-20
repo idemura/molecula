@@ -8,11 +8,11 @@ std::unique_ptr<S3Client> createS3Client(HttpClient* httpClient, const S3ClientC
   return std::make_unique<S3ClientImpl>(httpClient, config);
 }
 
-S3ClientImpl::S3ClientImpl(HttpClient* httpClient, const S3ClientConfig& config)
-    : httpClient_{httpClient},
-      endpoint_{config.endpoint},
-      signer_{config.accessKey, config.secretKey, config.region},
-      config_{config} {}
+S3ClientImpl::S3ClientImpl(HttpClient* httpClient, const S3ClientConfig& config) :
+    httpClient_{httpClient},
+    endpoint_{config.endpoint},
+    signer_{config.accessKey, config.secretKey, config.region},
+    config_{config} {}
 
 void S3ClientImpl::setObject(S3Request& request, std::string_view bucket, std::string_view key)
     const {
@@ -45,11 +45,9 @@ HttpRequest S3ClientImpl::createHttpRequest(S3Request& request) const {
   HttpRequest httpRequest;
   httpRequest.url = std::move(url);
   httpRequest.method = request.method;
-  LOG(INFO) << "add headers";
   for (std::string& header : request.headers.list()) {
     httpRequest.headers.add(std::move(header));
   }
-  LOG(INFO) << "add headers END";
   return httpRequest;
 }
 

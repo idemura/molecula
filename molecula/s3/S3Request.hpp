@@ -22,7 +22,7 @@ public:
 
 private:
   std::time_t timestamp_{};
-  std::tm gm_{/* zero init */};
+  std::tm tm_{};
 };
 
 // S3 request.

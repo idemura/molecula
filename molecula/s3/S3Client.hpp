@@ -21,29 +21,30 @@ public:
 
 class S3GetObjectInfoRequest {
 public:
+  S3GetObjectInfoRequest(std::string_view bucket, std::string_view key) :
+      bucket{bucket}, key{key} {}
+
   std::string_view bucket;
   std::string_view key;
-
-  S3GetObjectInfoRequest(std::string_view bucket, std::string_view key)
-      : bucket{bucket}, key{key} {}
 };
 
 class S3GetObjectInfo {
 public:
-  explicit S3GetObjectInfo(HttpResponse response)
-      : status{response.status}, etag{response.headers.get("etag")} {}
+  explicit S3GetObjectInfo(HttpResponse response);
 
   long status{};
   std::string etag;
+  long size{};
+  std::time_t lastModified{};
 };
 
 class S3GetObjectRequest {
 public:
+  S3GetObjectRequest(std::string_view bucket, std::string_view key) : bucket{bucket}, key{key} {}
+
   std::string_view bucket;
   std::string_view key;
   long range[2]{};
-
-  S3GetObjectRequest(std::string_view bucket, std::string_view key) : bucket{bucket}, key{key} {}
 
   void setRange(long begin, long end) {
     range[0] = begin;
@@ -53,8 +54,7 @@ public:
 
 class S3GetObject {
 public:
-  explicit S3GetObject(HttpResponse response)
-      : status{response.status}, data{std::move(response.body)} {}
+  explicit S3GetObject(HttpResponse response);
 
   long status{};
   ByteBuffer data;

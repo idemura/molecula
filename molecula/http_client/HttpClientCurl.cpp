@@ -50,8 +50,8 @@ std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config)
   return std::make_unique<HttpClientCurl>(multiHandle, config);
 }
 
-HttpClientCurl::HttpClientCurl(void* multiHandle, const HttpClientConfig& config)
-    : multiHandle_{multiHandle}, eventThread_{&HttpClientCurl::eventLoop, this}, config_{config} {
+HttpClientCurl::HttpClientCurl(void* multiHandle, const HttpClientConfig& config) :
+    multiHandle_{multiHandle}, eventThread_{&HttpClientCurl::eventLoop, this}, config_{config} {
   ::pipe(pipe_);
 }
 

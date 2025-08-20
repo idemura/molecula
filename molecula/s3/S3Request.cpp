@@ -36,24 +36,24 @@ std::string cryptoSha256Hex(ByteSpan data) {
 S3Time::S3Time() : S3Time{std::time(nullptr)} {}
 
 S3Time::S3Time(std::time_t timestamp) : timestamp_{timestamp} {
-  ::gmtime_r(&timestamp_, &gm_);
+  ::gmtime_r(&timestamp_, &tm_);
 }
 
 std::string_view S3Time::getDate(char* buffer) const {
-  auto length = std::strftime(buffer, kBufferSize, "%Y%m%d", &gm_);
+  auto length = std::strftime(buffer, kBufferSize, "%Y%m%d", &tm_);
   return {buffer, length};
 }
 
 std::string_view S3Time::getDateTime(char* buffer) const {
-  auto length = std::strftime(buffer, kBufferSize, "%Y%m%dT%H%M%SZ", &gm_);
+  auto length = std::strftime(buffer, kBufferSize, "%Y%m%dT%H%M%SZ", &tm_);
   return {buffer, length};
 }
 
 S3SignerV4::S3SignerV4(
     std::string_view accessKey,
     std::string_view secretKey,
-    std::string_view region)
-    : accessKey_{accessKey}, secretKey_{secretKey}, region_{region} {}
+    std::string_view region) :
+    accessKey_{accessKey}, secretKey_{secretKey}, region_{region} {}
 
 void S3SignerV4::generateSigningKey(const S3Time& time) {
   char keys[2][SHA256_DIGEST_LENGTH];

@@ -28,6 +28,7 @@ public:
   std::span<std::string> list();
   std::span<const std::string> list() const;
   std::string_view get(std::string_view name) const;
+  long getLong(std::string_view name) const;
   size_t getContentLength() const;
 
 private:
@@ -68,5 +69,25 @@ std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config)
 std::string makeHeader(std::string_view name, std::string_view value);
 void lowerCaseHeader(std::string& header);
 std::string_view getMethodName(HttpMethod method);
+
+inline bool is1xx(long status) {
+  return status >= 100 && status < 200;
+}
+
+inline bool is2xx(long status) {
+  return status >= 200 && status < 300;
+}
+
+inline bool is3xx(long status) {
+  return status >= 300 && status < 400;
+}
+
+inline bool is4xx(long status) {
+  return status >= 400 && status < 500;
+}
+
+inline bool is5xx(long status) {
+  return status >= 500 && status < 600;
+}
 
 } // namespace molecula

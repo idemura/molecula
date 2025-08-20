@@ -79,15 +79,19 @@ std::string_view HttpHeaders::get(std::string_view name) const {
   return {};
 }
 
-size_t HttpHeaders::getContentLength() const {
-  std::string_view value = get(kHeaderContentLength);
+long HttpHeaders::getLong(std::string_view name) const {
+  std::string_view value = get(name);
   if (value.empty()) {
     return 0;
   } else {
-    size_t length = 0;
-    std::from_chars(value.data(), value.data() + value.size(), length);
-    return length;
+    long result = 0;
+    std::from_chars(value.data(), value.data() + value.size(), result);
+    return result;
   }
+}
+
+size_t HttpHeaders::getContentLength() const {
+  return getLong(kHeaderContentLength);
 }
 
 void HttpResponse::appendToBody(const char* data, size_t size) {
