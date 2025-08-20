@@ -96,9 +96,9 @@ private:
   std::string bodyHash_;
 };
 
-class S3SigV4 {
+class S3SignerV4 {
 public:
-  S3SigV4(std::string_view accessKey, std::string_view secretKey, std::string_view region);
+  S3SignerV4(std::string_view accessKey, std::string_view secretKey, std::string_view region);
 
   void generateSigningKey(const S3Time& time);
 

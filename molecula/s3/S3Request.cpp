@@ -50,10 +50,13 @@ std::string_view S3Time::getDateTime(char* buffer) const {
   return {buffer, length};
 }
 
-S3SigV4::S3SigV4(std::string_view accessKey, std::string_view secretKey, std::string_view region)
+S3SignerV4::S3SignerV4(
+    std::string_view accessKey,
+    std::string_view secretKey,
+    std::string_view region)
     : accessKey_{accessKey}, secretKey_{secretKey}, region_{region} {}
 
-void S3SigV4::generateSigningKey(const S3Time& time) {
+void S3SignerV4::generateSigningKey(const S3Time& time) {
   char keys[2][SHA256_DIGEST_LENGTH];
 
   // Initalize first key with "AWS4" + secret key
@@ -71,11 +74,11 @@ void S3SigV4::generateSigningKey(const S3Time& time) {
   key = cryptoHmacSha256(key, std::string_view{"aws4_request"}, signingKey_);
 }
 
-std::string S3SigV4::getSigningKeyHex() const {
+std::string S3SignerV4::getSigningKeyHex() const {
   return folly::hexlify({signingKey_, sizeof(signingKey_)});
 }
 
-std::string S3SigV4::sign(S3Request& request, const S3Time& time) {
+std::string S3SignerV4::sign(S3Request& request, const S3Time& time) {
   char buffer[S3Time::kBufferSize];
 
   generateSigningKey(time);
@@ -88,7 +91,6 @@ std::string S3SigV4::sign(S3Request& request, const S3Time& time) {
   scope.append("/");
   scope.append(region_);
   scope.append("/s3/aws4_request");
-  LOG(INFO) << "S3 signature: Scope: " << scope;
 
   std::string toSign;
   toSign.reserve(256);
@@ -98,7 +100,6 @@ std::string S3SigV4::sign(S3Request& request, const S3Time& time) {
   toSign.append(scope);
   toSign.append("\n");
   toSign.append(request.getRequestHash());
-  LOG(INFO) << "S3 signature: String to sign:\n" << toSign;
 
   char hash[SHA256_DIGEST_LENGTH];
   cryptoHmacSha256(getSigningKey(), toSign, hash);
@@ -188,7 +189,6 @@ std::string S3Request::getRequestTextToHash() const {
   appendHeaderNames(output);
   output.append("\n");
 
-  LOG(INFO) << "S3 signature: Body hash: " << getBodyHash();
   output.append(getBodyHash());
 
   return output;
@@ -196,7 +196,6 @@ std::string S3Request::getRequestTextToHash() const {
 
 std::string S3Request::getRequestHash() const {
   auto text = getRequestTextToHash();
-  LOG(INFO) << "S3 signature: Canonical Request:\n" << text;
   return cryptoSha256Hex(ByteSpan{text.data(), text.size()});
 }
 

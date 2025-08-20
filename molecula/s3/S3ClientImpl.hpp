@@ -15,12 +15,12 @@ public:
   folly::Future<S3GetObjectRes> getObject(const S3GetObjectReq& req) override;
 
 private:
-  void setupObject(S3Request& request, std::string_view bucket, std::string_view key) const;
+  void setObject(S3Request& request, std::string_view bucket, std::string_view key) const;
   std::string buildUrl(const S3Request& request) const;
 
   HttpClient* httpClient_{nullptr};
   folly::Uri endpoint_;
-  S3SigV4 signer_;
+  S3SignerV4 signer_;
   S3ClientConfig config_;
 };
 

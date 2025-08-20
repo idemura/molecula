@@ -38,8 +38,8 @@ GTEST_TEST(S3, S3RequestPrepareToSign) {
       request.getBodyHash(), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
 }
 
-GTEST_TEST(S3, S3SigV4_SigningKey) {
-  S3SigV4 sig{kAccessKey, kSecretKey, "us-east-1"};
+GTEST_TEST(S3, S3SignerV4_SigningKey) {
+  S3SignerV4 sig{kAccessKey, kSecretKey, "us-east-1"};
 
   sig.generateSigningKey(S3Time{1'755'675'060L});
   EXPECT_EQ(
@@ -53,8 +53,8 @@ GTEST_TEST(S3, S3SigV4_SigningKey) {
 }
 
 // Amazon example
-GTEST_TEST(S3Request, S3SigV4_SigningKey) {
-  S3SigV4 sig{kAccessKey, kSecretKey, "us-east-1"};
+GTEST_TEST(S3Request, S3SignerV4_SigningKey) {
+  S3SignerV4 sig{kAccessKey, kSecretKey, "us-east-1"};
 
   S3Request request;
   request.setMethod(HttpMethod::GET);

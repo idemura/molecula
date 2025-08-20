@@ -14,7 +14,7 @@ S3ClientImpl::S3ClientImpl(HttpClient* httpClient, const S3ClientConfig& config)
       signer_{config.accessKey, config.secretKey, config.region},
       config_{config} {}
 
-void S3ClientImpl::setupObject(S3Request& request, std::string_view bucket, std::string_view key)
+void S3ClientImpl::setObject(S3Request& request, std::string_view bucket, std::string_view key)
     const {
   if (config_.pathStyle) {
     request.setHost(endpoint_.host());
@@ -49,10 +49,7 @@ folly::Future<S3GetObjectRes> S3ClientImpl::getObject(const S3GetObjectReq& req)
 
   S3Request s3Req;
   s3Req.setMethod(HttpMethod::GET);
-  setupObject(s3Req, req.bucket, req.key);
-  LOG(INFO) << "S3 GetObject host: " << s3Req.getHost();
-  LOG(INFO) << "S3 GetObject path: " << s3Req.getPath();
-  s3Req.prepareToSign(time);
+  setObject(s3Req, req.bucket, req.key);
 
   std::string auth = signer_.sign(s3Req, time);
 
@@ -64,10 +61,9 @@ folly::Future<S3GetObjectRes> S3ClientImpl::getObject(const S3GetObjectReq& req)
   }
   request.addHeader(makeHeader("authorization", auth));
 
-  LOG(INFO) << "S3 GetObject request URL: " << request.getUrl();
   auto response = httpClient_->makeRequest(std::move(request)).get();
-  LOG(INFO) << "S3 GetObject response status: " << response.getStatus();
-  return folly::Future<S3GetObjectRes>(S3GetObjectRes{});
+  return folly::Future<S3GetObjectRes>(
+      S3GetObjectRes{.status = response.getStatus(), .data = std::move(response.getBody())});
 }
 
 } // namespace molecula

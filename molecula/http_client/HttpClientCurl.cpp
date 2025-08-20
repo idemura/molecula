@@ -104,11 +104,11 @@ void HttpClientCurl::eventLoop() {
 
         // Destroy easy handle and clean up
         curl_multi_remove_handle(multiHandle_, easyHandle);
+        curl_easy_cleanup(easyHandle);
         if (context->headers) {
           curl_slist_free_all(context->headers);
           context->headers = nullptr;
         }
-        curl_easy_cleanup(easyHandle);
 
         context->promise.setValue(std::move(context->response));
         delete context;
@@ -175,6 +175,7 @@ void* HttpClientCurl::createEasyHandle(HttpContext* context) {
   for (const std::string& header : context->request.getHeaders()) {
     context->headers = curl_slist_append(context->headers, header.c_str());
   }
+  curl_easy_setopt(easyHandle, CURLOPT_HTTPHEADER, context->headers);
 
   return easyHandle;
 }

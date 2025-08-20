@@ -31,13 +31,17 @@ int serverMain() {
   }
 
   auto s3ClientConfig = S3ClientConfig{
-      .endpoint = "http://localhost:9000", .accessKey = "minioadmin", .secretKey = "minioadmin"};
+      .endpoint = "http://localhost:9000",
+      .accessKey = "gQkIXMhx6R0crumAU6vg",
+      .secretKey = "cOqMq4abd5IUiM9q1pg4WHFB0TO12A4BpfdUaG3A",
+      .region = "us-east-1"};
   auto s3Client = createS3Client(httpClient.get(), s3ClientConfig);
 
-  S3GetObjectReq req{"datalake", "poem.txt"};
+  // S3GetObjectReq req{"datalake", "poem.txt"};
+  S3GetObjectReq req{"datalake", "my/kitty/elsa"};
   auto res = s3Client->getObject(req).get();
-  // LOG(INFO) << "S3 GET Object status: " << res.status;
-  // LOG(INFO) << "S3 GET Object data: " << res.data.data();
+  LOG(INFO) << "S3 GET Object status: " << res.status;
+  LOG(INFO) << "S3 GET Object data: " << res.data.view();
 
   return 0;
 }

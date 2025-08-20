@@ -40,7 +40,7 @@ void HttpRequest::addHeader(std::string header) {
 
 void HttpResponse::addHeader(std::string header) {
   lowerCaseHeader(header);
-  // Check if this is a Content-Length header
+  // Check if this is a Content-Length header and allocate buffer
   if (header.starts_with(kHeaderContentLength)) {
     size_t i = kHeaderContentLength.size();
     while (i < header.size() && std::isspace(header[i])) {
