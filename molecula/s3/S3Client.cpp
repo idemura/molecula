@@ -44,7 +44,7 @@ void S3SigV4::generateSigningKey() {
   std::tm gm{/* zero init */};
   gmtime_r(&timestamp, &gm);
   char date[16];
-  size_t dateLength = std::strftime(date, sizeof(date), "%Y%m%d", &gm);
+  auto dateLength = std::strftime(date, sizeof(date), "%Y%m%d", &gm);
 
   key = cryptoHmacSha256(key, std::string_view{date, dateLength}, keys[1]);
   key = cryptoHmacSha256(key, region_, keys[0]);
