@@ -19,7 +19,11 @@ public:
 
 class S3SigV4 {
 public:
-  S3SigV4(std::string_view accessKey, std::string_view secretKey, std::string_view region);
+  S3SigV4(std::string accessKey, std::string secretKey, std::string region);
+
+  void generateSigningKey();
+
+  std::string getSigningKey() const;
 
   std::string sign(
       std::string_view bucket,
@@ -31,6 +35,7 @@ private:
   std::string accessKey_;
   std::string secretKey_;
   std::string region_;
+  std::string signingKey_;
 };
 
 class S3GetObjectReq {
