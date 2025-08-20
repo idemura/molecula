@@ -43,7 +43,7 @@ void S3SigV4::generateSigningKey() {
   // Get current date in YYYYMMDD format
   auto timestamp = std::time(nullptr);
   std::tm gm{/* zero init */};
-  gmtime_r(&timestamp, &gm);
+  ::gmtime_r(&timestamp, &gm);
   char date[16];
   auto dateLength = std::strftime(date, sizeof(date), "%Y%m%d", &gm);
 
