@@ -10,7 +10,8 @@
 
 namespace molecula {
 
-std::string_view cryptoHmacSha256(std::string_view key, std::string_view data, char* buffer) {
+static std::string_view
+cryptoHmacSha256(std::string_view key, std::string_view data, char* buffer) {
   unsigned int hashSize = 0;
   HMAC(
       EVP_sha256(),
