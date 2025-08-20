@@ -1,50 +1,17 @@
 #pragma once
 
+#include "folly/Uri.h"
+#include "folly/futures/Future.h"
+
+#include "molecula/common/ByteBuffer.hpp"
+
 #include <memory>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "folly/futures/Future.h"
-
 namespace molecula {
-
-class HttpBuffer {
-public:
-  HttpBuffer() = default;
-
-  void reserve(size_t size) {
-    data_.reserve(size);
-  }
-
-  void append(const char* data, size_t size) {
-    data_.insert(data_.end(), data, data + size);
-  }
-
-  size_t size() const {
-    return data_.size();
-  }
-
-  char* data() {
-    return data_.empty() ? nullptr : data_.data();
-  }
-
-  std::span<const char> span() const {
-    return data_;
-  }
-
-  std::span<char> span() {
-    return data_;
-  }
-
-  std::string_view getStringView() const {
-    return std::string_view{data_.data(), data_.size()};
-  }
-
-private:
-  std::vector<char> data_;
-};
 
 enum class HttpMethod {
   GET,
@@ -78,7 +45,11 @@ public:
     return headers_;
   }
 
-  HttpBuffer& getBody() {
+  void setBody(ByteBuffer body) {
+    body_ = std::move(body);
+  }
+
+  ByteBuffer& getBody() {
     return body_;
   }
 
@@ -86,7 +57,7 @@ private:
   std::string url_;
   HttpMethod method_{HttpMethod::GET};
   std::vector<std::string> headers_;
-  HttpBuffer body_;
+  ByteBuffer body_;
 };
 
 class HttpResponse {
@@ -107,14 +78,14 @@ public:
     return headers_;
   }
 
-  HttpBuffer& getBody() {
+  ByteBuffer& getBody() {
     return body_;
   }
 
 private:
   long status_ = 0;
   std::vector<std::string> headers_;
-  HttpBuffer body_;
+  ByteBuffer body_;
 };
 
 /// Async HTTP client.
@@ -133,5 +104,6 @@ public:
 std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config);
 std::string& lowerCaseHeader(std::string& header);
 std::string_view toStringView(HttpMethod method);
+std::string makeHeader(const char* namez, std::string_view value);
 
 } // namespace molecula

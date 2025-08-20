@@ -1,12 +1,12 @@
 #pragma once
 
+#include "folly/futures/Future.h"
+#include "molecula/http_client/HttpClient.hpp"
+
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
-
-#include "folly/futures/Future.h"
-#include "molecula/http_client/HttpClient.hpp"
 
 namespace molecula {
 
@@ -17,6 +17,8 @@ public:
   std::string_view endpoint;
   std::string_view accessKey;
   std::string_view secretKey;
+  std::string_view region;
+  bool pathStyle{true};
 };
 
 class S3GetObjectReq {
@@ -37,7 +39,7 @@ public:
 class S3GetObjectRes {
 public:
   long status = 0;
-  HttpBuffer data;
+  ByteBuffer data;
 };
 
 // S3 storage client.

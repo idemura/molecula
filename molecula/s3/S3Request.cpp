@@ -1,12 +1,13 @@
 #include "molecula/s3/S3Request.hpp"
 
+#include "folly/String.h"
+
 #include <glog/logging.h>
+
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
 #include <algorithm>
 #include <cstring>
-
-#include "folly/String.h"
 
 namespace molecula {
 
@@ -33,16 +34,6 @@ std::string cryptoSha256Hex(ByteSpan data) {
   return folly::hexlify({buffer, SHA256_DIGEST_LENGTH});
 }
 
-std::string makeHeader(const char* namez, std::string_view value) {
-  std::string header;
-  std::string_view name{namez};
-  header.reserve(name.size() + value.size() + 1);
-  header.append(name);
-  header.push_back(':');
-  header.append(value);
-  return header;
-}
-
 S3Time::S3Time() : S3Time{std::time(nullptr)} {}
 
 S3Time::S3Time(std::time_t timestamp) : timestamp_{timestamp} {
@@ -59,10 +50,8 @@ std::string_view S3Time::getDateTime(char* buffer) const {
   return {buffer, length};
 }
 
-S3SigV4::S3SigV4(std::string accessKey, std::string secretKey, std::string region)
-    : accessKey_{std::move(accessKey)},
-      secretKey_{std::move(secretKey)},
-      region_{std::move(region)} {}
+S3SigV4::S3SigV4(std::string_view accessKey, std::string_view secretKey, std::string_view region)
+    : accessKey_{accessKey}, secretKey_{secretKey}, region_{region} {}
 
 void S3SigV4::generateSigningKey(const S3Time& time) {
   char keys[2][SHA256_DIGEST_LENGTH];

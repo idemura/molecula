@@ -1,8 +1,8 @@
 add_library(
     molecula_common
     STATIC
-    Common.cpp
-    Common.hpp
+    ByteBuffer.cpp
+    ByteBuffer.hpp
 )
 
 target_include_directories(
@@ -14,7 +14,7 @@ target_include_directories(
 if(MOLECULA_BUILD_TESTS)
     add_executable(
         molecula_common_test
-        Common_Test.cpp
+        ByteBuffer_Test.cpp
     )
 
     target_link_libraries(

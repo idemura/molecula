@@ -1,10 +1,10 @@
 #include "molecula/http_client/HttpClientCurl.hpp"
 
+#include <glog/logging.h>
+
 #include <curl/curl.h>
 #include <unistd.h>
 #include <type_traits>
-
-#include <glog/logging.h>
 
 namespace molecula {
 
@@ -19,7 +19,6 @@ public:
   folly::Promise<HttpResponse> promise;
 };
 
-static_assert(std::is_move_constructible_v<HttpBuffer>);
 static_assert(std::is_move_constructible_v<HttpRequest>);
 static_assert(std::is_move_constructible_v<HttpResponse>);
 static_assert(std::is_move_constructible_v<HttpContext>);

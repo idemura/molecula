@@ -1,12 +1,12 @@
 #pragma once
 
+#include "molecula/http_client/HttpClient.hpp"
+
 #include <ctime>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
-
-#include "molecula/http_client/HttpClient.hpp"
 
 namespace molecula {
 
@@ -69,6 +69,11 @@ public:
   }
 
   void addHeader(std::string header);
+
+  std::span<std::string> getHeaders() {
+    return headers_;
+  }
+
   void prepareToSign(const S3Time& time);
   void appendHeaderNames(std::string& output) const;
 
@@ -93,7 +98,7 @@ private:
 
 class S3SigV4 {
 public:
-  S3SigV4(std::string accessKey, std::string secretKey, std::string region);
+  S3SigV4(std::string_view accessKey, std::string_view secretKey, std::string_view region);
 
   void generateSigningKey(const S3Time& time);
 

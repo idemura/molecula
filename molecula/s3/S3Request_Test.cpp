@@ -39,7 +39,7 @@ GTEST_TEST(S3, S3RequestPrepareToSign) {
 }
 
 GTEST_TEST(S3, S3SigV4_SigningKey) {
-  S3SigV4 sig{std::string{kAccessKey}, std::string{kSecretKey}, "us-east-1"};
+  S3SigV4 sig{kAccessKey, kSecretKey, "us-east-1"};
 
   sig.generateSigningKey(S3Time{1'755'675'060L});
   EXPECT_EQ(
@@ -54,7 +54,7 @@ GTEST_TEST(S3, S3SigV4_SigningKey) {
 
 // Amazon example
 GTEST_TEST(S3Request, S3SigV4_SigningKey) {
-  S3SigV4 sig{std::string{kAccessKey}, std::string{kSecretKey}, "us-east-1"};
+  S3SigV4 sig{kAccessKey, kSecretKey, "us-east-1"};
 
   S3Request request;
   request.setMethod(HttpMethod::GET);

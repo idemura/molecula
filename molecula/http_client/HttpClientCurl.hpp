@@ -1,11 +1,11 @@
 #pragma once
 
+#include "molecula/http_client/HttpClient.hpp"
+
 #include <atomic>
 #include <mutex>
 #include <queue>
 #include <thread>
-
-#include "molecula/http_client/HttpClient.hpp"
 
 namespace molecula {
 

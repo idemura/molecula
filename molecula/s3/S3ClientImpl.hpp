@@ -1,9 +1,10 @@
 #pragma once
 
+#include "molecula/s3/S3Client.hpp"
+#include "molecula/s3/S3Request.hpp"
+
 #include <memory>
 #include <string>
-
-#include "molecula/s3/S3Client.hpp"
 
 namespace molecula {
 
@@ -14,10 +15,12 @@ public:
   folly::Future<S3GetObjectRes> getObject(const S3GetObjectReq& req) override;
 
 private:
-  std::string getObjectUrl(std::string_view bucket, std::string_view key) const;
+  void setupObject(S3Request& request, std::string_view bucket, std::string_view key) const;
+  std::string buildUrl(const S3Request& request) const;
 
   HttpClient* httpClient_{nullptr};
-  std::string endpoint_;
+  folly::Uri endpoint_;
+  S3SigV4 signer_;
   S3ClientConfig config_;
 };
 

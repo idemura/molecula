@@ -55,4 +55,14 @@ void HttpResponse::addHeader(std::string header) {
   headers_.push_back(std::move(header));
 }
 
+std::string makeHeader(const char* namez, std::string_view value) {
+  std::string header;
+  std::string_view name{namez};
+  header.reserve(name.size() + value.size() + 1);
+  header.append(name);
+  header.push_back(':');
+  header.append(value);
+  return header;
+}
+
 } // namespace molecula

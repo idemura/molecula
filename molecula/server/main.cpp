@@ -24,7 +24,7 @@ int serverMain() {
   auto response = httpClient->makeRequest(std::move(request)).get();
 
   LOG(INFO) << "HTTP status: " << response.getStatus();
-  LOG(INFO) << "Response body: " << response.getBody().getStringView();
+  LOG(INFO) << "Response body: " << response.getBody().view();
   LOG(INFO) << "Response headers:\n";
   for (const std::string& header : response.getHeaders()) {
     LOG(INFO) << "  " << header;
@@ -34,7 +34,7 @@ int serverMain() {
       .endpoint = "http://localhost:9000", .accessKey = "minioadmin", .secretKey = "minioadmin"};
   auto s3Client = createS3Client(httpClient.get(), s3ClientConfig);
 
-  S3GetObjectReq req{"datalake", "test.txt"};
+  S3GetObjectReq req{"datalake", "poem.txt"};
   auto res = s3Client->getObject(req).get();
   // LOG(INFO) << "S3 GET Object status: " << res.status;
   // LOG(INFO) << "S3 GET Object data: " << res.data.data();
