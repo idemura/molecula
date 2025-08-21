@@ -35,17 +35,17 @@ std::string cryptoSha256Hex(ByteSpan data) {
 
 S3Time::S3Time() : S3Time{std::time(nullptr)} {}
 
-S3Time::S3Time(std::time_t timestamp) : timestamp_{timestamp} {
-  ::gmtime_r(&timestamp_, &tm_);
+S3Time::S3Time(std::time_t timestamp) : timestamp{timestamp} {
+  ::gmtime_r(&this->timestamp, &tm);
 }
 
 std::string_view S3Time::getDate(char* buffer) const {
-  auto length = std::strftime(buffer, kBufferSize, "%Y%m%d", &tm_);
+  auto length = std::strftime(buffer, kBufferSize, "%Y%m%d", &tm);
   return {buffer, length};
 }
 
 std::string_view S3Time::getDateTime(char* buffer) const {
-  auto length = std::strftime(buffer, kBufferSize, "%Y%m%dT%H%M%SZ", &tm_);
+  auto length = std::strftime(buffer, kBufferSize, "%Y%m%dT%H%M%SZ", &tm);
   return {buffer, length};
 }
 
@@ -53,7 +53,7 @@ S3SignerV4::S3SignerV4(
     std::string_view accessKey,
     std::string_view secretKey,
     std::string_view region) :
-    accessKey_{accessKey}, secretKey_{secretKey}, region_{region} {}
+    accessKey{accessKey}, secretKey{secretKey}, region{region} {}
 
 void S3SignerV4::generateSigningKey(const S3Time& time) {
   char keys[2][SHA256_DIGEST_LENGTH];
@@ -63,18 +63,18 @@ void S3SignerV4::generateSigningKey(const S3Time& time) {
   keys[0][1] = 'W';
   keys[0][2] = 'S';
   keys[0][3] = '4';
-  std::memcpy(&keys[0][4], secretKey_.data(), secretKey_.size());
-  std::string_view key{keys[0], 4 + secretKey_.size()};
+  std::memcpy(&keys[0][4], secretKey.data(), secretKey.size());
+  std::string_view key{keys[0], 4 + secretKey.size()};
 
   char buffer[S3Time::kBufferSize];
   key = cryptoHmacSha256(key, time.getDate(buffer), keys[1]);
-  key = cryptoHmacSha256(key, region_, keys[0]);
+  key = cryptoHmacSha256(key, region, keys[0]);
   key = cryptoHmacSha256(key, std::string_view{"s3"}, keys[1]);
-  key = cryptoHmacSha256(key, std::string_view{"aws4_request"}, signingKey_);
+  key = cryptoHmacSha256(key, std::string_view{"aws4_request"}, signingKey);
 }
 
 std::string S3SignerV4::getSigningKeyHex() const {
-  return folly::hexlify({signingKey_, sizeof(signingKey_)});
+  return folly::hexlify({signingKey, sizeof(signingKey)});
 }
 
 void S3SignerV4::sign(S3Request& request, const S3Time& time) {
@@ -88,7 +88,7 @@ void S3SignerV4::sign(S3Request& request, const S3Time& time) {
   scope.reserve(64);
   scope.append(time.getDate(buffer));
   scope.append("/");
-  scope.append(region_);
+  scope.append(region);
   scope.append("/s3/aws4_request");
 
   std::string toSign;
@@ -108,7 +108,7 @@ void S3SignerV4::sign(S3Request& request, const S3Time& time) {
   auth.reserve(256);
   auth.append("AWS4-HMAC-SHA256 ");
   auth.append("Credential=");
-  auth.append(accessKey_);
+  auth.append(accessKey);
   auth.append("/");
   auth.append(scope);
   auth.append(",SignedHeaders=");
@@ -120,22 +120,22 @@ void S3SignerV4::sign(S3Request& request, const S3Time& time) {
 }
 
 void S3Request::setHost(std::string host) {
-  host_ = std::move(host);
+  this->host = std::move(host);
 }
 
 void S3Request::setPath(std::string path) {
   if (path.empty()) {
-    path_ = "/";
+    this->path = "/";
   } else if (path[0] == '/') {
-    path_ = std::move(path);
+    this->path = std::move(path);
   } else {
-    path_.clear();
-    path_.append("/").append(path);
+    this->path.clear();
+    this->path.append("/").append(path);
   }
 }
 
 void S3Request::setQuery(std::string query) {
-  query_ = std::move(query);
+  this->query = std::move(query);
 }
 
 void S3Request::appendHeaderNames(std::string& output) const {
@@ -158,11 +158,11 @@ void S3Request::appendHeaderNames(std::string& output) const {
 void S3Request::prepareToSign(const S3Time& time) {
   char buffer[S3Time::kBufferSize];
 
-  bodyHash_ = cryptoSha256Hex(body);
+  bodyHash = cryptoSha256Hex(body);
 
-  headers.add(makeHeader("host", host_));
+  headers.add(makeHeader("host", host));
   headers.add(makeHeader("x-amz-date", time.getDateTime(buffer)));
-  headers.add(makeHeader("x-amz-content-sha256", bodyHash_));
+  headers.add(makeHeader("x-amz-content-sha256", bodyHash));
 
   headers.sort();
 }
@@ -174,9 +174,9 @@ std::string S3Request::getRequestTextToHash() const {
   // All path element must be URL-encoded and canonical.
   output.append(getMethodName(method));
   output.append("\n");
-  output.append(path_);
+  output.append(path);
   output.append("\n");
-  output.append(query_);
+  output.append(query);
   output.append("\n");
 
   // Add headers

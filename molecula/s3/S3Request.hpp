@@ -21,8 +21,8 @@ public:
   std::string_view getDateTime(char* buffer) const;
 
 private:
-  std::time_t timestamp_{};
-  std::tm tm_{};
+  std::time_t timestamp{};
+  std::tm tm{};
 };
 
 // S3 request.
@@ -35,19 +35,19 @@ public:
   void setHost(std::string host);
 
   std::string_view getHost() const {
-    return host_;
+    return host;
   }
 
   void setPath(std::string path);
 
   std::string_view getPath() const {
-    return path_;
+    return path;
   }
 
   void setQuery(std::string query);
 
   std::string_view getQuery() const {
-    return query_;
+    return query;
   }
 
   void prepareToSign(const S3Time& time);
@@ -59,14 +59,14 @@ public:
   std::string getRequestHash() const;
 
   std::string_view getBodyHash() const {
-    return bodyHash_;
+    return bodyHash;
   }
 
 private:
-  std::string host_;
-  std::string path_;
-  std::string query_;
-  std::string bodyHash_;
+  std::string host;
+  std::string path;
+  std::string query;
+  std::string bodyHash;
 };
 
 class S3SignerV4 {
@@ -76,7 +76,7 @@ public:
   void generateSigningKey(const S3Time& time);
 
   std::string_view getSigningKey() const {
-    return {signingKey_, sizeof(signingKey_)};
+    return {signingKey, sizeof(signingKey)};
   }
 
   std::string getSigningKeyHex() const;
@@ -84,12 +84,12 @@ public:
   void sign(S3Request& request, const S3Time& time);
 
 private:
-  std::string accessKey_;
-  std::string secretKey_;
-  std::string region_;
+  std::string accessKey;
+  std::string secretKey;
+  std::string region;
 
   // SHA256_DIGEST_LENGTH is 32 bytes.
-  char signingKey_[32]{};
+  char signingKey[32]{};
 };
 
 } // namespace molecula
