@@ -14,6 +14,8 @@ class HttpContext;
 /// Async HTTP client based on CURL.
 class HttpClientCurl final : public HttpClient {
 public:
+  static std::unique_ptr<HttpClient> create(const HttpClientConfig& config);
+
   HttpClientCurl(void* multiHandle, const HttpClientConfig& config);
   ~HttpClientCurl() override;
   folly::Future<HttpResponse> makeRequest(HttpRequest request) override;
@@ -23,14 +25,17 @@ private:
   HttpContext* takeNextFromQueue();
   void* createEasyHandle(HttpContext* context);
 
-  void* multiHandle_{};
-  std::mutex mutex_;
-  long counter_{1'000};
-  std::queue<HttpContext*> queue_;
-  int pipe_[2]{}; // Pipe for signaling
-  std::atomic<bool> running_{true};
-  std::thread eventThread_;
-  HttpClientConfig config_;
+  static std::mutex globalMutex;
+  static long numClients;
+
+  void* multiHandle{};
+  std::mutex mutex;
+  long counter{1'000};
+  std::queue<HttpContext*> queue;
+  int pipe[2]{}; // Pipe for signaling
+  std::atomic<bool> running{true};
+  std::thread eventThread;
+  HttpClientConfig config;
 };
 
 } // namespace molecula

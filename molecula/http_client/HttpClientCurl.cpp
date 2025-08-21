@@ -24,8 +24,6 @@ static_assert(std::is_move_constructible_v<HttpRequest>);
 static_assert(std::is_move_constructible_v<HttpResponse>);
 static_assert(std::is_move_constructible_v<HttpContext>);
 
-static std::once_flag curlInitOnce;
-
 static size_t curlWriteCallback(char* buffer, size_t size, size_t nmemb, void* arg) {
   size_t total = size * nmemb;
   static_cast<HttpResponse*>(arg)->appendToBody(buffer, total);
@@ -41,7 +39,20 @@ static size_t curlHeaderCallback(char* buffer, size_t size, size_t nmemb, void* 
 }
 
 std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config) {
-  std::call_once(curlInitOnce, []() { curl_global_init(CURL_GLOBAL_DEFAULT); });
+  return HttpClientCurl::create(config);
+}
+
+std::mutex HttpClientCurl::globalMutex;
+long HttpClientCurl::numClients{};
+
+std::unique_ptr<HttpClient> HttpClientCurl::create(const HttpClientConfig& config) {
+  {
+    std::lock_guard<std::mutex> lock{globalMutex};
+    if (numClients == 0) {
+      curl_global_init(CURL_GLOBAL_DEFAULT);
+    }
+    ++numClients;
+  }
 
   void* multiHandle = curl_multi_init();
   if (!multiHandle) {
@@ -51,19 +62,27 @@ std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config)
 }
 
 HttpClientCurl::HttpClientCurl(void* multiHandle, const HttpClientConfig& config) :
-    multiHandle_{multiHandle}, eventThread_{&HttpClientCurl::eventLoop, this}, config_{config} {
-  ::pipe(pipe_);
+    multiHandle{multiHandle}, eventThread{&HttpClientCurl::eventLoop, this}, config{config} {
+  ::pipe(pipe);
 }
 
 HttpClientCurl::~HttpClientCurl() {
-  running_.store(false, std::memory_order_release);
-  ::write(pipe_[1], "", 1);
-  if (eventThread_.joinable()) {
-    eventThread_.join();
+  running.store(false, std::memory_order_release);
+  ::write(pipe[1], "", 1);
+  if (eventThread.joinable()) {
+    eventThread.join();
   }
-  curl_multi_cleanup(multiHandle_);
-  ::close(pipe_[0]);
-  ::close(pipe_[1]);
+  curl_multi_cleanup(multiHandle);
+  ::close(pipe[0]);
+  ::close(pipe[1]);
+
+  {
+    std::lock_guard<std::mutex> lock{globalMutex};
+    --numClients;
+    if (numClients == 0) {
+      curl_global_cleanup();
+    }
+  }
 }
 
 folly::Future<HttpResponse> HttpClientCurl::makeRequest(HttpRequest request) {
@@ -72,26 +91,26 @@ folly::Future<HttpResponse> HttpClientCurl::makeRequest(HttpRequest request) {
   // we need take future before adding to the queue (or under the lock).
   auto future = context->promise.getFuture();
   {
-    std::lock_guard<std::mutex> lock{mutex_};
-    queue_.emplace(context);
+    std::lock_guard<std::mutex> lock{mutex};
+    queue.emplace(context);
   }
-  ::write(pipe_[1], "", 1);
+  ::write(pipe[1], "", 1);
   return future;
 }
 
 void HttpClientCurl::eventLoop() {
   char buf[16]{};
 
-  while (running_.load(std::memory_order_acquire)) {
+  while (running.load(std::memory_order_acquire)) {
     int stillRunning = 0;
-    while (curl_multi_perform(multiHandle_, &stillRunning) == CURLM_CALL_MULTI_PERFORM) {
+    while (curl_multi_perform(multiHandle, &stillRunning) == CURLM_CALL_MULTI_PERFORM) {
       // Keep performing until no more actions are pending
     }
 
     // Handle completed transfers
     CURLMsg* msg = nullptr;
     int msgsLeft = 0;
-    while ((msg = curl_multi_info_read(multiHandle_, &msgsLeft))) {
+    while ((msg = curl_multi_info_read(multiHandle, &msgsLeft))) {
       if (msg->msg == CURLMSG_DONE) {
         void* easyHandle = msg->easy_handle;
 
@@ -104,7 +123,7 @@ void HttpClientCurl::eventLoop() {
         context->response.status = status;
 
         // Destroy easy handle and clean up
-        curl_multi_remove_handle(multiHandle_, easyHandle);
+        curl_multi_remove_handle(multiHandle, easyHandle);
         curl_easy_cleanup(easyHandle);
         if (context->headers) {
           curl_slist_free_all(context->headers);
@@ -117,33 +136,33 @@ void HttpClientCurl::eventLoop() {
     }
 
     int numfds = 0;
-    curl_waitfd curl_fd{pipe_[0], CURL_WAIT_POLLIN};
-    curl_multi_wait(multiHandle_, &curl_fd, 1, 1000, &numfds);
+    curl_waitfd curl_fd{pipe[0], CURL_WAIT_POLLIN};
+    curl_multi_wait(multiHandle, &curl_fd, 1, 1000, &numfds);
 
     // Add new requests from queue
     HttpContext* context = nullptr;
     while ((context = takeNextFromQueue())) {
       // Every time we enqueue a new request, we write to the pipe. Read one byte back.
-      ::read(pipe_[0], buf, 1);
+      ::read(pipe[0], buf, 1);
 
-      curl_multi_add_handle(multiHandle_, createEasyHandle(context));
+      curl_multi_add_handle(multiHandle, createEasyHandle(context));
     }
   }
 }
 
 HttpContext* HttpClientCurl::takeNextFromQueue() {
-  std::unique_lock<std::mutex> lock(mutex_);
-  if (queue_.empty()) {
+  std::unique_lock<std::mutex> lock(mutex);
+  if (queue.empty()) {
     return nullptr;
   } else {
-    auto* context = queue_.front();
-    queue_.pop();
+    auto* context = queue.front();
+    queue.pop();
     return context;
   }
 }
 
 void* HttpClientCurl::createEasyHandle(HttpContext* context) {
-  context->id = counter_++;
+  context->id = counter++;
   // LOG(INFO) << "HTTP request #" << context->id << ": Create";
 
   void* easyHandle = curl_easy_init();
