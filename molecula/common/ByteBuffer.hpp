@@ -20,6 +20,7 @@ public:
   ByteBuffer& operator=(ByteBuffer&&) noexcept = default;
 
   void reserve(size_t capacity);
+  void resize(size_t size);
   void append(const char* data, size_t size);
   void append(std::string_view str);
 
@@ -52,8 +53,8 @@ private:
   void allocate(size_t capacity);
 
   std::unique_ptr<char[]> data_;
-  size_t size_ = 0;
-  size_t capacity_ = 0;
+  size_t size_{};
+  size_t capacity_{};
 };
 
 } // namespace molecula

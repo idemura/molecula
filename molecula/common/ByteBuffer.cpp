@@ -19,6 +19,13 @@ void ByteBuffer::reserve(size_t capacity) {
   }
 }
 
+void ByteBuffer::resize(size_t size) {
+  if (size > capacity_) {
+    reserve(size);
+  }
+  size_ = size;
+}
+
 void ByteBuffer::append(const char* data, size_t size) {
   if (data_ == nullptr || size_ + size > capacity_) {
     allocate(std::max(capacity_ * 2, align(size_ + size)));
@@ -32,7 +39,7 @@ void ByteBuffer::append(std::string_view str) {
 }
 
 void ByteBuffer::allocate(size_t capacity) {
-  auto newData = std::make_unique<char[]>(capacity);
+  auto newData = std::make_unique_for_overwrite<char[]>(capacity);
   std::memcpy(newData.get(), data_.get(), size_);
   data_ = std::move(newData);
   capacity_ = capacity;
