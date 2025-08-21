@@ -15,188 +15,187 @@ static_assert(SHA256_DIGEST_LENGTH == 32, "SHA256 digest length must be 32 bytes
 // Buffer must be SHA256_DIGEST_LENGTH bytes long.
 static std::string_view
 cryptoHmacSha256(std::string_view key, std::string_view data, char* buffer) {
-  unsigned int hashSize = 0;
-  HMAC(
-      EVP_sha256(),
-      key.data(),
-      key.size(),
-      (const unsigned char*)data.data(),
-      data.size(),
-      (unsigned char*)buffer,
-      &hashSize);
-  return std::string_view{buffer, hashSize};
+    unsigned int hashSize = 0;
+    HMAC(EVP_sha256(),
+         key.data(),
+         key.size(),
+         (const unsigned char*)data.data(),
+         data.size(),
+         (unsigned char*)buffer,
+         &hashSize);
+    return std::string_view{buffer, hashSize};
 }
 
 std::string cryptoSha256Hex(ByteSpan data) {
-  char buffer[SHA256_DIGEST_LENGTH];
-  SHA256((const unsigned char*)data.data(), data.size(), (unsigned char*)buffer);
-  return folly::hexlify({buffer, SHA256_DIGEST_LENGTH});
+    char buffer[SHA256_DIGEST_LENGTH];
+    SHA256((const unsigned char*)data.data(), data.size(), (unsigned char*)buffer);
+    return folly::hexlify({buffer, SHA256_DIGEST_LENGTH});
 }
 
 S3Time::S3Time() : S3Time{std::time(nullptr)} {}
 
 S3Time::S3Time(std::time_t timestamp) : timestamp{timestamp} {
-  ::gmtime_r(&this->timestamp, &tm);
+    ::gmtime_r(&this->timestamp, &tm);
 }
 
 std::string_view S3Time::getDate(char* buffer) const {
-  auto length = std::strftime(buffer, kBufferSize, "%Y%m%d", &tm);
-  return {buffer, length};
+    auto length = std::strftime(buffer, kBufferSize, "%Y%m%d", &tm);
+    return {buffer, length};
 }
 
 std::string_view S3Time::getDateTime(char* buffer) const {
-  auto length = std::strftime(buffer, kBufferSize, "%Y%m%dT%H%M%SZ", &tm);
-  return {buffer, length};
+    auto length = std::strftime(buffer, kBufferSize, "%Y%m%dT%H%M%SZ", &tm);
+    return {buffer, length};
 }
 
 S3SignerV4::S3SignerV4(
-    std::string_view accessKey,
-    std::string_view secretKey,
-    std::string_view region) :
+        std::string_view accessKey,
+        std::string_view secretKey,
+        std::string_view region) :
     accessKey{accessKey}, secretKey{secretKey}, region{region} {}
 
 void S3SignerV4::generateSigningKey(const S3Time& time) {
-  char keys[2][SHA256_DIGEST_LENGTH];
+    char keys[2][SHA256_DIGEST_LENGTH];
 
-  // Initalize first key with "AWS4" + secret key
-  keys[0][0] = 'A';
-  keys[0][1] = 'W';
-  keys[0][2] = 'S';
-  keys[0][3] = '4';
-  std::memcpy(&keys[0][4], secretKey.data(), secretKey.size());
-  std::string_view key{keys[0], 4 + secretKey.size()};
+    // Initalize first key with "AWS4" + secret key
+    keys[0][0] = 'A';
+    keys[0][1] = 'W';
+    keys[0][2] = 'S';
+    keys[0][3] = '4';
+    std::memcpy(&keys[0][4], secretKey.data(), secretKey.size());
+    std::string_view key{keys[0], 4 + secretKey.size()};
 
-  char buffer[S3Time::kBufferSize];
-  key = cryptoHmacSha256(key, time.getDate(buffer), keys[1]);
-  key = cryptoHmacSha256(key, region, keys[0]);
-  key = cryptoHmacSha256(key, std::string_view{"s3"}, keys[1]);
-  key = cryptoHmacSha256(key, std::string_view{"aws4_request"}, signingKey);
+    char buffer[S3Time::kBufferSize];
+    key = cryptoHmacSha256(key, time.getDate(buffer), keys[1]);
+    key = cryptoHmacSha256(key, region, keys[0]);
+    key = cryptoHmacSha256(key, std::string_view{"s3"}, keys[1]);
+    key = cryptoHmacSha256(key, std::string_view{"aws4_request"}, signingKey);
 }
 
 std::string S3SignerV4::getSigningKeyHex() const {
-  return folly::hexlify({signingKey, sizeof(signingKey)});
+    return folly::hexlify({signingKey, sizeof(signingKey)});
 }
 
 void S3SignerV4::sign(S3Request& request, const S3Time& time) {
-  char buffer[S3Time::kBufferSize];
+    char buffer[S3Time::kBufferSize];
 
-  generateSigningKey(time);
+    generateSigningKey(time);
 
-  request.prepareToSign(time);
+    request.prepareToSign(time);
 
-  std::string scope;
-  scope.reserve(64);
-  scope.append(time.getDate(buffer));
-  scope.append("/");
-  scope.append(region);
-  scope.append("/s3/aws4_request");
+    std::string scope;
+    scope.reserve(64);
+    scope.append(time.getDate(buffer));
+    scope.append("/");
+    scope.append(region);
+    scope.append("/s3/aws4_request");
 
-  std::string toSign;
-  toSign.reserve(256);
-  toSign.append("AWS4-HMAC-SHA256\n");
-  toSign.append(time.getDateTime(buffer));
-  toSign.append("\n");
-  toSign.append(scope);
-  toSign.append("\n");
-  toSign.append(request.getRequestHash());
+    std::string toSign;
+    toSign.reserve(256);
+    toSign.append("AWS4-HMAC-SHA256\n");
+    toSign.append(time.getDateTime(buffer));
+    toSign.append("\n");
+    toSign.append(scope);
+    toSign.append("\n");
+    toSign.append(request.getRequestHash());
 
-  char hash[SHA256_DIGEST_LENGTH];
-  cryptoHmacSha256(getSigningKey(), toSign, hash);
-  std::string signature = folly::hexlify({hash, sizeof(hash)});
+    char hash[SHA256_DIGEST_LENGTH];
+    cryptoHmacSha256(getSigningKey(), toSign, hash);
+    std::string signature = folly::hexlify({hash, sizeof(hash)});
 
-  std::string auth;
-  auth.reserve(256);
-  auth.append("AWS4-HMAC-SHA256 ");
-  auth.append("Credential=");
-  auth.append(accessKey);
-  auth.append("/");
-  auth.append(scope);
-  auth.append(",SignedHeaders=");
-  request.appendHeaderNames(auth);
-  auth.append(",Signature=");
-  auth.append(signature);
+    std::string auth;
+    auth.reserve(256);
+    auth.append("AWS4-HMAC-SHA256 ");
+    auth.append("Credential=");
+    auth.append(accessKey);
+    auth.append("/");
+    auth.append(scope);
+    auth.append(",SignedHeaders=");
+    request.appendHeaderNames(auth);
+    auth.append(",Signature=");
+    auth.append(signature);
 
-  request.headers.add(makeHeader("authorization", auth));
+    request.headers.add(makeHeader("authorization", auth));
 }
 
 void S3Request::setHost(std::string host) {
-  this->host = std::move(host);
+    this->host = std::move(host);
 }
 
 void S3Request::setPath(std::string path) {
-  if (path.empty()) {
-    this->path = "/";
-  } else if (path[0] == '/') {
-    this->path = std::move(path);
-  } else {
-    this->path.clear();
-    this->path.append("/").append(path);
-  }
+    if (path.empty()) {
+        this->path = "/";
+    } else if (path[0] == '/') {
+        this->path = std::move(path);
+    } else {
+        this->path.clear();
+        this->path.append("/").append(path);
+    }
 }
 
 void S3Request::setQuery(std::string query) {
-  this->query = std::move(query);
+    this->query = std::move(query);
 }
 
 void S3Request::appendHeaderNames(std::string& output) const {
-  bool semicolon = false;
-  for (const std::string& header : headers.span()) {
-    if (semicolon) {
-      output.append(";");
-    } else {
-      semicolon = true;
+    bool semicolon = false;
+    for (const std::string& header : headers.span()) {
+        if (semicolon) {
+            output.append(";");
+        } else {
+            semicolon = true;
+        }
+        size_t i = header.find(':');
+        if (i != std::string::npos) {
+            output.append(header.data(), i);
+        } else {
+            output.append(header);
+        }
     }
-    size_t i = header.find(':');
-    if (i != std::string::npos) {
-      output.append(header.data(), i);
-    } else {
-      output.append(header);
-    }
-  }
 }
 
 void S3Request::prepareToSign(const S3Time& time) {
-  char buffer[S3Time::kBufferSize];
+    char buffer[S3Time::kBufferSize];
 
-  bodyHash = cryptoSha256Hex(body);
+    bodyHash = cryptoSha256Hex(body);
 
-  headers.add(makeHeader("host", host));
-  headers.add(makeHeader("x-amz-date", time.getDateTime(buffer)));
-  headers.add(makeHeader("x-amz-content-sha256", bodyHash));
+    headers.add(makeHeader("host", host));
+    headers.add(makeHeader("x-amz-date", time.getDateTime(buffer)));
+    headers.add(makeHeader("x-amz-content-sha256", bodyHash));
 
-  headers.sort();
+    headers.sort();
 }
 
 std::string S3Request::getRequestTextToHash() const {
-  std::string output;
-  output.reserve(256);
+    std::string output;
+    output.reserve(256);
 
-  // All path element must be URL-encoded and canonical.
-  output.append(getMethodName(method));
-  output.append("\n");
-  output.append(path);
-  output.append("\n");
-  output.append(query);
-  output.append("\n");
+    // All path element must be URL-encoded and canonical.
+    output.append(getMethodName(method));
+    output.append("\n");
+    output.append(path);
+    output.append("\n");
+    output.append(query);
+    output.append("\n");
 
-  // Add headers
-  for (const std::string& header : headers.span()) {
-    output.append(header).append("\n");
-  }
-  output.append("\n");
+    // Add headers
+    for (const std::string& header : headers.span()) {
+        output.append(header).append("\n");
+    }
+    output.append("\n");
 
-  // Add signed headers
-  appendHeaderNames(output);
-  output.append("\n");
+    // Add signed headers
+    appendHeaderNames(output);
+    output.append("\n");
 
-  output.append(getBodyHash());
+    output.append(getBodyHash());
 
-  return output;
+    return output;
 }
 
 std::string S3Request::getRequestHash() const {
-  auto text = getRequestTextToHash();
-  return cryptoSha256Hex(ByteSpan{text.data(), text.size()});
+    auto text = getRequestTextToHash();
+    return cryptoSha256Hex(ByteSpan{text.data(), text.size()});
 }
 
 } // namespace molecula

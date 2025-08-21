@@ -2,6 +2,6 @@
 
 namespace molecula {
 void Compiler::compile(std::string_view sql) {
-  // Empty
+    // Empty
 }
 } // namespace molecula

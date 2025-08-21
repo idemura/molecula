@@ -7,8 +7,8 @@ namespace molecula {
 
 class Compiler {
 public:
-  Compiler() {}
-  void compile(std::string_view sql);
+    Compiler() {}
+    void compile(std::string_view sql);
 
 private:
 };

@@ -70,12 +70,8 @@ CheckOptions:
     value: camelBack
   - key: readability-identifier-naming.PrivateMemberCase
     value: camelBack
-  - key: readability-identifier-naming.PrivateMemberSuffix
-    value: _
   - key: readability-identifier-naming.ProtectedMemberCase
     value: camelBack
-  - key: readability-identifier-naming.ProtectedMemberSuffix
-    value: _
   - key: readability-identifier-naming.MacroDefinitionCase
     value: UPPER_CASE
   - key: readability-identifier-naming.NamespaceCase
