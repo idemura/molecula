@@ -1,12 +1,13 @@
 #include "molecula/http_client/HttpClient.hpp"
 
+#include <glog/logging.h>
 #include <algorithm>
 #include <cctype>
 #include <charconv>
 
 namespace molecula {
 
-static std::string_view kHeaderContentLength{"content-length:"};
+static std::string_view kHeaderContentLength{"content-length"};
 
 void lowerCaseHeader(std::string& header) {
   for (char& c : header) {

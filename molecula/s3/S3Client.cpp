@@ -32,4 +32,16 @@ S3GetObject::S3GetObject(HttpResponse response) : status{response.status} {
   }
 }
 
+void S3GetObjectRequest::setRange(long begin, long end) {
+  CHECK(begin >= 0 && end >= begin) << "Invalid range: [" << begin << ", " << end << "]";
+  range[0] = begin;
+  range[1] = end;
+}
+
+std::string S3GetObjectRequest::getRangeHeader() const {
+  char buffer[80];
+  size_t n = std::snprintf(buffer, sizeof(buffer), "range:bytes=%ld-%ld", range[0], range[1]);
+  return std::string(buffer, n);
+}
+
 } // namespace molecula

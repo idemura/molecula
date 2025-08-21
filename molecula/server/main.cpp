@@ -39,16 +39,27 @@ int serverMain() {
   auto s3Client = createS3Client(httpClient.get(), s3ClientConfig);
 
   // S3GetObjectRequest req{"datalake", "poem.txt"};
-  S3GetObjectRequest req{"datalake", "my/kitty/elsa"};
-  auto res = s3Client->getObject(req).get();
-  LOG(INFO) << "S3 GET Object status: " << res.status;
-  LOG(INFO) << "S3 GET Object data: " << res.data.view();
-
-  S3GetObjectInfoRequest req2{"datalake", "my/kitty/elsa"};
-  auto res2 = s3Client->getObjectInfo(req2).get();
-  LOG(INFO) << "S3 GET Object Info status: " << res2.status;
-  LOG(INFO) << "S3 GET Object Info etag: " << res2.etag;
-
+  {
+    S3GetObjectRequest req{"datalake", "my/kitty/elsa"};
+    auto res = s3Client->getObject(req).get();
+    LOG(INFO) << "S3 GET Object status: " << res.status;
+    LOG(INFO) << "S3 GET Object data: " << res.data.view();
+  }
+  {
+    S3GetObjectRequest req{"datalake", "my/kitty/elsa"};
+    req.setRange(0, 5);
+    auto res = s3Client->getObject(req).get();
+    LOG(INFO) << "S3 GET Object status: " << res.status;
+    LOG(INFO) << "S3 GET Object data: " << res.data.view();
+  }
+  {
+    S3GetObjectInfoRequest req{"datalake", "my/kitty/elsa"};
+    auto res = s3Client->getObjectInfo(req).get();
+    LOG(INFO) << "S3 GET Object Info status: " << res.status;
+    LOG(INFO) << "S3 GET Object Info etag: " << res.etag;
+    LOG(INFO) << "S3 GET Object Info size: " << res.size;
+    LOG(INFO) << "S3 GET Object Info last modified: " << res.lastModified;
+  }
   return 0;
 }
 

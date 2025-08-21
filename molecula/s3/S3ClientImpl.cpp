@@ -74,6 +74,9 @@ folly::Future<S3GetObject> S3ClientImpl::getObject(const S3GetObjectRequest& req
   S3Request s3Req;
   s3Req.method = HttpMethod::GET;
   setObject(s3Req, req.bucket, req.key);
+  if (req.hasRange()) {
+    s3Req.headers.add(req.getRangeHeader());
+  }
   signer_.sign(s3Req, time);
 
   // Make HTTP request

@@ -46,10 +46,13 @@ public:
   std::string_view key;
   long range[2]{};
 
-  void setRange(long begin, long end) {
-    range[0] = begin;
-    range[1] = end;
+  void setRange(long begin, long end);
+
+  bool hasRange() const {
+    return range[0] > 0 || range[1] > 0;
   }
+
+  std::string getRangeHeader() const;
 };
 
 class S3GetObject {
