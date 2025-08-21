@@ -23,6 +23,7 @@ find_package(CURL REQUIRED)
 find_package(GTest REQUIRED)
 find_package(glog REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(simdjson REQUIRED)
 
 add_subdirectory(velox)
 add_subdirectory(molecula)

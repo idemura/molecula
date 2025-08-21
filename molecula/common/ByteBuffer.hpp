@@ -8,8 +8,11 @@ namespace molecula {
 
 using ByteSpan = std::span<const char>;
 
+// Owning and growing buffer of chars.
 class ByteBuffer {
 public:
+    static size_t align(size_t size);
+
     ByteBuffer() = default;
     explicit ByteBuffer(size_t capacity);
 
@@ -49,7 +52,6 @@ public:
     }
 
 private:
-    static size_t align(size_t size);
     void allocate(size_t capacity);
 
     std::unique_ptr<char[]> data_;

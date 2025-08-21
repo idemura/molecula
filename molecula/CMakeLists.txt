@@ -1,5 +1,6 @@
 add_subdirectory(common)
 add_subdirectory(compiler)
 add_subdirectory(http_client)
+add_subdirectory(iceberg)
 add_subdirectory(s3)
 add_subdirectory(server)

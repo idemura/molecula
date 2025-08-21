@@ -9,8 +9,8 @@ ByteBuffer::ByteBuffer(size_t capacity) :
     data_{new char[capacity]}, size_{0}, capacity_{capacity} {}
 
 size_t ByteBuffer::align(size_t size) {
-    // Align size to multiple of 16
-    return (size + 15) & ~size_t{15};
+    // Align size to multiple of 64. Suitable for SIMD operations.
+    return (size + 63) & ~size_t{63};
 }
 
 void ByteBuffer::reserve(size_t capacity) {
