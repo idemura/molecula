@@ -9,31 +9,31 @@ std::unique_ptr<S3Client> createS3Client(HttpClient* httpClient, const S3ClientC
 }
 
 S3ClientImpl::S3ClientImpl(HttpClient* httpClient, const S3ClientConfig& config) :
-    httpClient_{httpClient},
-    endpoint_{config.endpoint},
-    signer_{config.accessKey, config.secretKey, config.region},
-    config_{config} {}
+    httpClient{httpClient},
+    endpoint{config.endpoint},
+    signer{config.accessKey, config.secretKey, config.region},
+    config{config} {}
 
 void S3ClientImpl::setObject(S3Request& request, std::string_view bucket, std::string_view key)
     const {
-  if (config_.pathStyle) {
-    request.setHost(endpoint_.host());
+  if (config.pathStyle) {
+    request.setHost(endpoint.host());
     request.setPath(std::string{"/"}.append(bucket).append("/").append(key));
   } else {
-    request.setHost(std::string{bucket}.append(".").append(endpoint_.host()));
+    request.setHost(std::string{bucket}.append(".").append(endpoint.host()));
     request.setPath(std::string{"/"}.append(key));
   }
 }
 
 HttpRequest S3ClientImpl::createHttpRequest(S3Request& request) const {
   std::string url;
-  url.append(endpoint_.scheme());
+  url.append(endpoint.scheme());
   url.append("://");
   url.append(request.getHost());
-  if (endpoint_.port() > 0) {
+  if (endpoint.port() > 0) {
     url.append(":");
     char buf[16];
-    auto [ptr, ec] = std::to_chars(std::begin(buf), std::end(buf), endpoint_.port());
+    auto [ptr, ec] = std::to_chars(std::begin(buf), std::end(buf), endpoint.port());
     url.append(buf, ptr - buf);
   }
   url.append(request.getPath());
@@ -58,11 +58,11 @@ folly::Future<S3GetObjectInfo> S3ClientImpl::getObjectInfo(const S3GetObjectInfo
   S3Request s3Req;
   s3Req.method = HttpMethod::HEAD;
   setObject(s3Req, req.bucket, req.key);
-  signer_.sign(s3Req, time);
+  signer.sign(s3Req, time);
 
   // Make HTTP request
   HttpRequest request = createHttpRequest(s3Req);
-  return httpClient_->makeRequest(std::move(request)).thenValue([](HttpResponse response) {
+  return httpClient->makeRequest(std::move(request)).thenValue([](HttpResponse response) {
     return S3GetObjectInfo{std::move(response)};
   });
 }
@@ -77,11 +77,11 @@ folly::Future<S3GetObject> S3ClientImpl::getObject(const S3GetObjectRequest& req
   if (req.hasRange()) {
     s3Req.headers.add(req.getRangeHeader());
   }
-  signer_.sign(s3Req, time);
+  signer.sign(s3Req, time);
 
   // Make HTTP request
   HttpRequest request = createHttpRequest(s3Req);
-  return httpClient_->makeRequest(std::move(request)).thenValue([](HttpResponse response) {
+  return httpClient->makeRequest(std::move(request)).thenValue([](HttpResponse response) {
     return S3GetObject{std::move(response)};
   });
 }
