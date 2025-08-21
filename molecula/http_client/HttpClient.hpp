@@ -25,14 +25,21 @@ class HttpHeaders {
 public:
   void add(std::string header);
   void sort();
-  std::span<std::string> list();
-  std::span<const std::string> list() const;
+
+  std::span<std::string> span() {
+    return headers;
+  }
+
+  std::span<const std::string> span() const {
+    return headers;
+  }
+
   std::string_view get(std::string_view name) const;
   long getLong(std::string_view name) const;
   size_t getContentLength() const;
 
 private:
-  std::vector<std::string> headers_;
+  std::vector<std::string> headers;
 };
 
 class HttpRequest {

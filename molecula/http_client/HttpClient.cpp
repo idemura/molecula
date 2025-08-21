@@ -7,7 +7,7 @@
 
 namespace molecula {
 
-static std::string_view kHeaderContentLength{"content-length"};
+static const std::string_view kHeaderContentLength{"content-length"};
 
 void lowerCaseHeader(std::string& header) {
   for (char& c : header) {
@@ -45,23 +45,15 @@ std::string_view getMethodName(HttpMethod method) {
 
 void HttpHeaders::add(std::string header) {
   lowerCaseHeader(header);
-  headers_.push_back(std::move(header));
+  headers.push_back(std::move(header));
 }
 
 void HttpHeaders::sort() {
-  std::sort(headers_.begin(), headers_.end());
-}
-
-std::span<std::string> HttpHeaders::list() {
-  return headers_;
-}
-
-std::span<const std::string> HttpHeaders::list() const {
-  return headers_;
+  std::sort(headers.begin(), headers.end());
 }
 
 std::string_view HttpHeaders::get(std::string_view name) const {
-  for (const std::string& header : headers_) {
+  for (const std::string& header : headers) {
     if (header.starts_with(name)) {
       size_t i = name.size();
       if (i == header.size()) {

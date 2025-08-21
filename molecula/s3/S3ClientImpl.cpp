@@ -45,7 +45,7 @@ HttpRequest S3ClientImpl::createHttpRequest(S3Request& request) const {
   HttpRequest httpRequest;
   httpRequest.url = std::move(url);
   httpRequest.method = request.method;
-  for (std::string& header : request.headers.list()) {
+  for (std::string& header : request.headers.span()) {
     httpRequest.headers.add(std::move(header));
   }
   return httpRequest;

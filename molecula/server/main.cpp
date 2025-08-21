@@ -27,7 +27,7 @@ int serverMain() {
   LOG(INFO) << "HTTP status: " << response.status;
   LOG(INFO) << "Response body: " << response.body.view();
   LOG(INFO) << "Response headers:\n";
-  for (const std::string& header : response.headers.list()) {
+  for (const std::string& header : response.headers.span()) {
     LOG(INFO) << "  " << header;
   }
 

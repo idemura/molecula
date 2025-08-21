@@ -176,7 +176,7 @@ void* HttpClientCurl::createEasyHandle(HttpContext* context) {
   }
 
   // Add headers
-  for (const std::string& header : context->request.headers.list()) {
+  for (const std::string& header : context->request.headers.span()) {
     context->headers = curl_slist_append(context->headers, header.c_str());
   }
   curl_easy_setopt(easyHandle, CURLOPT_HTTPHEADER, context->headers);

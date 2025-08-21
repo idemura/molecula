@@ -140,7 +140,7 @@ void S3Request::setQuery(std::string query) {
 
 void S3Request::appendHeaderNames(std::string& output) const {
   bool semicolon = false;
-  for (const std::string& header : headers.list()) {
+  for (const std::string& header : headers.span()) {
     if (semicolon) {
       output.append(";");
     } else {
@@ -180,7 +180,7 @@ std::string S3Request::getRequestTextToHash() const {
   output.append("\n");
 
   // Add headers
-  for (const std::string& header : headers.list()) {
+  for (const std::string& header : headers.span()) {
     output.append(header).append("\n");
   }
   output.append("\n");
