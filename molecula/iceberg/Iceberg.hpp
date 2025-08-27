@@ -1,7 +1,8 @@
 #pragma once
 
+#include "molecula/common/ByteBuffer.hpp"
+
 #include <memory>
-#include <string>
 #include <string_view>
 
 namespace molecula {
@@ -9,7 +10,7 @@ namespace molecula {
 // Iceberg table metadata.
 class IcebergMetadata {
 public:
-    static std::unique_ptr<IcebergMetadata> fromJson(std::string_view json);
+    static std::unique_ptr<IcebergMetadata> fromJson(ByteBuffer& buffer);
 
     IcebergMetadata() = default;
 

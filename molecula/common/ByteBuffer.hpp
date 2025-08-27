@@ -52,7 +52,7 @@ public:
     }
 
 private:
-    void allocate(size_t capacity);
+    void allocateAndCopy(size_t capacity);
 
     std::unique_ptr<char[]> data_;
     size_t size_{};

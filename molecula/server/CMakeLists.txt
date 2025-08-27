@@ -1,6 +1,8 @@
 add_executable(
     molecula_server
     main.cpp
+    Server.cpp
+    Server.hpp
 )
 
 target_include_directories(
@@ -12,7 +14,9 @@ target_include_directories(
 target_link_libraries(
     molecula_common
     PRIVATE
-    glog::glog)
+    gflags::gflags
+    glog::glog
+)
 
 target_include_directories(
     molecula_server
@@ -25,6 +29,7 @@ target_link_libraries(
     PUBLIC
     molecula_compiler
     molecula_http_client
+    molecula_iceberg
     molecula_s3
     PRIVATE
     velox_core

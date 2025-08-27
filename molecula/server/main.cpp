@@ -1,17 +1,22 @@
-#include <glog/logging.h>
-
 #include "folly/init/Init.h"
 #include "molecula/compiler/Compiler.hpp"
 #include "molecula/http_client/HttpClient.hpp"
 #include "molecula/s3/S3Client.hpp"
+#include "molecula/server/Server.hpp"
 #include "velox/common/base/Status.h"
 #include "velox/common/base/VeloxException.h"
+
+#include <gflags/gflags.h>
+#include <glog/logging.h>
+
+#include <span>
+#include <string_view>
 
 namespace velox = facebook::velox;
 
 namespace molecula {
 
-int serverMain() {
+void testS3Client() {
     auto status = velox::Status::OK();
     auto compiler = std::make_unique<Compiler>();
     compiler->compile("SELECT 1");
@@ -60,6 +65,19 @@ int serverMain() {
         LOG(INFO) << "S3 GET Object Info size: " << res.size;
         LOG(INFO) << "S3 GET Object Info last modified: " << res.lastModified;
     }
+}
+
+int serverMain(std::span<std::string_view> args) {
+    auto server = createServer();
+    if (!server) {
+        LOG(ERROR) << "Failed to create server";
+        return 1;
+    }
+
+    // server->start();
+    // server->stop();
+    server->testIceberg();
+
     return 0;
 }
 
@@ -69,5 +87,14 @@ int main(int argc, char** argv) {
     // Initializes glog inside
     folly::Init init(&argc, &argv);
 
-    return molecula::serverMain();
+    std::vector<std::string_view> args;
+    args.reserve(argc);
+    for (int i = 0; i < argc; ++i) {
+        args.push_back(argv[i]);
+    }
+
+    return molecula::serverMain(std::span{args});
+
+    // molecula::testS3Client();
+    // return 0;
 }

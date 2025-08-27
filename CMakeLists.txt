@@ -6,6 +6,7 @@ enable_testing()
 
 option(MOLECULA_BUILD_TESTS "Build Molecula tests" ON)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -21,6 +22,7 @@ set(VELOX_ENABLE_SPARK_FUNCTIONS OFF CACHE BOOL "")
 
 find_package(CURL REQUIRED)
 find_package(GTest REQUIRED)
+find_package(gflags REQUIRED)
 find_package(glog REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(simdjson REQUIRED)
