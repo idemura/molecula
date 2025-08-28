@@ -12,8 +12,8 @@ std::unique_ptr<IcebergMetadata> IcebergMetadata::fromJson(ByteBuffer& buffer) {
     json::dom::element doc;
 
     json::dom::parser parser;
-    bool realloc_if_needed = buffer.capacity() - buffer.size() < json::SIMDJSON_PADDING;
-    json::check(parser.parse(buffer.data(), buffer.size(), realloc_if_needed).get(doc));
+    bool reallocIfNeeded = buffer.capacity() - buffer.size() < json::SIMDJSON_PADDING;
+    json::check(parser.parse(buffer.data(), buffer.size(), reallocIfNeeded).get(doc));
 
     json::get(doc["table-uuid"], metadata->uuid);
     json::get(doc["location"], metadata->location);
