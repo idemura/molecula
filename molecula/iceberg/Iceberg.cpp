@@ -1,33 +1,45 @@
 #include "molecula/iceberg/Iceberg.hpp"
 
-#include <glog/logging.h>
+#include "molecula/iceberg/json.hpp"
 
-// #define SIMDJSON_EXCEPTIONS 0
-#include <simdjson.h>
-// #undef SIMDJSON_EXCEPTIONS
+#include <glog/logging.h>
 
 namespace molecula {
 
 std::unique_ptr<IcebergMetadata> IcebergMetadata::fromJson(ByteBuffer& buffer) {
-    try {
-        bool realloc_if_needed = buffer.capacity() - buffer.size() < simdjson::SIMDJSON_PADDING;
-        simdjson::dom::parser parser;
-        simdjson::dom::element root = parser.parse(buffer.data(), buffer.size(), realloc_if_needed);
-        LOG(INFO) << "table-uuid: " << root["table-uuid"];
-        // for (simdjson::dom::object obj : root) {
-        //     for (const simdjson::dom::key_value_pair kv : obj) {
-        //         LOG(INFO) << "key: " << kv.key << "";
-        //         simdjson::dom::object innerobj = kv.value;
-        //         LOG(INFO) << "a: " << double(innerobj["a"]);
-        //         LOG(INFO) << "b: " << double(innerobj["b"]);
-        //         LOG(INFO) << "c: " << int64_t(innerobj["c"]);
-        //     }
-        // }
-    } catch (const simdjson::simdjson_error& e) {
-        LOG(ERROR) << "JSON parsing error " << e.what();
-        return nullptr;
+    auto metadata = std::make_unique<IcebergMetadata>();
+
+    json::dom::element doc;
+
+    json::dom::parser parser;
+    bool realloc_if_needed = buffer.capacity() - buffer.size() < json::SIMDJSON_PADDING;
+    json::check(parser.parse(buffer.data(), buffer.size(), realloc_if_needed).get(doc));
+
+    json::get(doc["table-uuid"], metadata->uuid);
+    json::get(doc["location"], metadata->location);
+    json::get(doc["current-schema-id"], metadata->currentSchemaId);
+    json::get(doc["current-snapshot-id"], metadata->currentSnapshotId);
+
+    json::dom::array snapshots;
+    json::check(doc["snapshots"].get(snapshots));
+    for (json::dom::element snapshot : snapshots) {
+        auto s = std::make_unique<IcebergSnapshot>();
+        json::get(snapshot["snapshot-id"], s->id);
+        json::get(snapshot["manifest-list"], s->manifestList);
+        json::get(snapshot["schema-id"], s->schemaId);
+        metadata->snapshots[s->id] = std::move(s);
     }
-    return std::make_unique<IcebergMetadata>();
+
+    json::dom::object properties;
+    json::check(doc["properties"].get(properties));
+    for (json::dom::key_value_pair kv : properties) {
+        std::string_view s;
+        json::check(kv.value.get(s));
+        metadata->properties[std::string{kv.key}] = s;
+        LOG(INFO) << "Loaded property: " << kv.key << " = " << s;
+    }
+
+    return std::move(metadata);
 }
 
 } // namespace molecula
