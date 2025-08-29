@@ -2,7 +2,6 @@
 
 #include "molecula/common/ByteBuffer.hpp"
 
-#include <memory>
 #include <string_view>
 
 namespace molecula {
