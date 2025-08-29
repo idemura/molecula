@@ -12,7 +12,7 @@ struct JsonObject;
 struct JsonArray;
 
 /// Json tree visitor.
-/// If we visit an object, then "name" is the key. If this is an array, then "name" is is empty.
+/// For object, then "name" is the key. For array, it is empty.
 class JsonVisitor {
 public:
     virtual ~JsonVisitor() = default;
