@@ -35,7 +35,7 @@ BraceWrapping:
   BeforeCatch:     false
   BeforeElse:      false
   IndentBraces:    false
-BreakBeforeBinaryOperators: None
+BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Attach
 BreakInheritanceList: AfterColon
 BreakBeforeTernaryOperators: true
@@ -65,7 +65,7 @@ IncludeCategories:
     Priority:        2
   - Regex:           '.*'
     Priority:        3
-IndentCaseLabels: false
+IndentCaseLabels: true
 IndentCaseBlocks: false
 IndentGotoLabels: false
 IndentPPDirectives: None

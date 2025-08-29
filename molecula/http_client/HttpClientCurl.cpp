@@ -173,25 +173,25 @@ void* HttpClientCurl::createEasyHandle(HttpContext* context) {
     curl_easy_setopt(easyHandle, CURLOPT_HEADERFUNCTION, &curlHeaderCallback);
     curl_easy_setopt(easyHandle, CURLOPT_HEADERDATA, &context->response);
     switch (context->request.method) {
-    case HttpMethod::GET:
-        // curl_easy_setopt(easyHandle, CURLOPT_HTTPGET, 1L);
-        break;
-    case HttpMethod::HEAD:
-        curl_easy_setopt(easyHandle, CURLOPT_NOBODY, 1L);
-        break;
-    case HttpMethod::POST:
-        curl_easy_setopt(easyHandle, CURLOPT_POST, 1L);
-        curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDS, context->request.body.data());
-        curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDSIZE, context->request.body.size());
-        break;
-    case HttpMethod::PUT:
-        curl_easy_setopt(easyHandle, CURLOPT_CUSTOMREQUEST, "PUT");
-        curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDS, context->request.body.data());
-        curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDSIZE, context->request.body.size());
-        break;
-    case HttpMethod::DELETE:
-        curl_easy_setopt(easyHandle, CURLOPT_CUSTOMREQUEST, "DELETE");
-        break;
+        case HttpMethod::GET:
+            // curl_easy_setopt(easyHandle, CURLOPT_HTTPGET, 1L);
+            break;
+        case HttpMethod::HEAD:
+            curl_easy_setopt(easyHandle, CURLOPT_NOBODY, 1L);
+            break;
+        case HttpMethod::POST:
+            curl_easy_setopt(easyHandle, CURLOPT_POST, 1L);
+            curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDS, context->request.body.data());
+            curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDSIZE, context->request.body.size());
+            break;
+        case HttpMethod::PUT:
+            curl_easy_setopt(easyHandle, CURLOPT_CUSTOMREQUEST, "PUT");
+            curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDS, context->request.body.data());
+            curl_easy_setopt(easyHandle, CURLOPT_POSTFIELDSIZE, context->request.body.size());
+            break;
+        case HttpMethod::DELETE:
+            curl_easy_setopt(easyHandle, CURLOPT_CUSTOMREQUEST, "DELETE");
+            break;
     }
 
     // Add headers
