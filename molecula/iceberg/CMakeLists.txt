@@ -3,6 +3,7 @@ add_library(
     STATIC
     Iceberg.cpp
     Iceberg.hpp
+    json.cpp
     json.hpp
 )
 

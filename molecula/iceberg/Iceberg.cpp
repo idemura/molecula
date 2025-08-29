@@ -1,45 +1,108 @@
 #include "molecula/iceberg/Iceberg.hpp"
 
-#include "molecula/iceberg/json.hpp"
-
 #include <glog/logging.h>
 
 namespace molecula {
 
+// TODO: Store int64_t properties.
+class PropertiesVisitor : public JsonVisitor {
+public:
+    bool visit(std::string_view name, std::string_view value) override {
+        LOG(INFO) << "Property: " << name << " = " << value;
+        properties->emplace(std::string{name}, std::string{value});
+        return true;
+    }
+
+    std::unordered_map<std::string, std::string>* properties{};
+};
+
 std::unique_ptr<IcebergMetadata> IcebergMetadata::fromJson(ByteBuffer& buffer) {
     auto metadata = std::make_unique<IcebergMetadata>();
-
-    json::dom::element doc;
-
-    json::dom::parser parser;
-    bool reallocIfNeeded = buffer.capacity() - buffer.size() < json::SIMDJSON_PADDING;
-    json::check(parser.parse(buffer.data(), buffer.size(), reallocIfNeeded).get(doc));
-
-    json::get(doc["table-uuid"], metadata->uuid);
-    json::get(doc["location"], metadata->location);
-    json::get(doc["current-schema-id"], metadata->currentSchemaId);
-    json::get(doc["current-snapshot-id"], metadata->currentSnapshotId);
-
-    json::dom::array snapshots;
-    json::check(doc["snapshots"].get(snapshots));
-    for (json::dom::element snapshot : snapshots) {
-        auto s = std::make_unique<IcebergSnapshot>();
-        json::get(snapshot["snapshot-id"], s->id);
-        json::get(snapshot["manifest-list"], s->manifestList);
-        json::get(snapshot["schema-id"], s->schemaId);
-        metadata->snapshots[s->id] = std::move(s);
+    if (!jsonParse(buffer, metadata.get())) {
+        return nullptr;
     }
+    return metadata;
+}
 
-    json::dom::object properties;
-    json::check(doc["properties"].get(properties));
-    for (json::dom::key_value_pair kv : properties) {
-        std::string_view s;
-        json::check(kv.value.get(s));
-        metadata->properties[std::string{kv.key}] = s;
-        LOG(INFO) << "Loaded property: " << kv.key << " = " << s;
+bool IcebergMetadata::visit(std::string_view name, int64_t value) {
+    // Visitor allows us to make a very efficient dispatch.
+    switch (name[0]) {
+        case 'c':
+            // Check for "current-xxx"
+            if (name.size() < 10) {
+                return true;
+            }
+            switch (name[9]) {
+                case 'c':
+                    if (name == "current-schema-id") {
+                        currentSchemaId = value;
+                    }
+                    return true;
+                case 'n':
+                    if (name == "current-snapshot-id") {
+                        currentSnapshotId = value;
+                    }
+                    return true;
+            }
+            return true;
+        case 'l':
+            if (name.size() < 6) {
+                return true;
+            }
+            switch (name[5]) {
+                case 'c':
+                    if (name == "last-column-id") {
+                        lastColumnId = value;
+                    }
+                    return true;
+                case 's':
+                    if (name == "last-sequence-number") {
+                        lastSequenceNumber = value;
+                    }
+                    return true;
+                case 'u':
+                    if (name == "last-updated-millis") {
+                        lastUpdatedMillis = value;
+                    }
+                    return true;
+            }
+            return true;
     }
+    return true;
+}
 
-    return std::move(metadata);
+bool IcebergMetadata::visit(std::string_view name, std::string_view value) {
+    // Visitor allows us to make a very efficient dispatch.
+    switch (name[0]) {
+        case 'l':
+            if (name == "location") {
+                location = value;
+            }
+            return true;
+        case 't':
+            if (name == "table-uuid") {
+                uuid = value;
+            }
+            return true;
+    }
+    return true;
+}
+
+bool IcebergMetadata::visit(std::string_view name, bool value) {
+    return true;
+}
+
+bool IcebergMetadata::visit(std::string_view name, JsonObject* node) {
+    if (name == "properties") {
+        PropertiesVisitor visitor;
+        visitor.properties = &properties;
+        return jsonAccept(&visitor, node);
+    }
+    return true;
+}
+
+bool IcebergMetadata::visit(std::string_view name, JsonArray* node) {
+    return true;
 }
 
 } // namespace molecula

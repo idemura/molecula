@@ -3,6 +3,7 @@ add_library(
     STATIC
     ByteBuffer.cpp
     ByteBuffer.hpp
+    types.hpp
 )
 
 target_include_directories(

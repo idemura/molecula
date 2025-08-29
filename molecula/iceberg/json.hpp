@@ -1,50 +1,31 @@
 #pragma once
 
-#include <glog/logging.h>
+#include "molecula/common/ByteBuffer.hpp"
 
-#define SIMDJSON_EXCEPTIONS 0
-#include <simdjson.h>
-
+#include <memory>
 #include <string>
 #include <string_view>
-#include <utility>
 
-namespace json {
-using namespace simdjson;
+namespace molecula {
 
-inline void check(error_code e) {
-    CHECK(e == SUCCESS) << error_message(e);
-}
+struct JsonObject;
+struct JsonArray;
 
-inline void get(simdjson_result<dom::element> e, int64_t& value) {
-    check(e.get(value));
-}
+/// Json tree visitor.
+/// If we visit an object, then "name" is the key. If this is an array, then "name" is is empty.
+class JsonVisitor {
+public:
+    virtual ~JsonVisitor() = default;
 
-inline void get(simdjson_result<dom::element> e, std::string_view& value) {
-    check(e.get(value));
-}
+    virtual bool visit(std::string_view name, int64_t value);
+    virtual bool visit(std::string_view name, std::string_view value);
+    virtual bool visit(std::string_view name, bool value);
+    virtual bool visit(std::string_view name, JsonObject* node);
+    virtual bool visit(std::string_view name, JsonArray* node);
+};
 
-inline void get(simdjson_result<dom::element> e, std::string& value) {
-    std::string_view s;
-    get(e, s);
-    value = s;
-}
+bool jsonParse(ByteBuffer& buffer, JsonVisitor* visitor);
+bool jsonAccept(JsonVisitor* visitor, JsonObject* node);
+bool jsonAccept(JsonVisitor* visitor, JsonArray* node);
 
-inline bool get_opt(simdjson_result<dom::element> e, int64_t& value) {
-    return e.get(value) == SUCCESS;
-}
-
-inline bool get_opt(simdjson_result<dom::element> e, std::string_view& value) {
-    return e.get(value) == SUCCESS;
-}
-
-inline bool get_opt(simdjson_result<dom::element> e, std::string& value) {
-    std::string_view s;
-    if (!get_opt(e, s)) {
-        return false;
-    }
-    value = s;
-    return true;
-}
-
-} // namespace json
+} // namespace molecula
