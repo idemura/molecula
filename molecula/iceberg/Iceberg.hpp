@@ -13,14 +13,17 @@
 
 namespace molecula {
 
-class IcebergSnapshot {
+class IcebergSnapshot : public JsonVisitor {
 public:
     int64_t id{};
+    int64_t schemaId{};
+    int64_t sequenceNumber{};
     std::chrono::milliseconds timestamp;
     std::string manifestList;
-    int64_t schemaId{};
 
     IcebergSnapshot() = default;
+    bool visit(std::string_view name, int64_t value) override;
+    bool visit(std::string_view name, std::string_view value) override;
 };
 
 // Iceberg table metadata.
@@ -51,9 +54,9 @@ private:
     int64_t currentSnapshotId{};
     int64_t lastColumnId{};
     int64_t lastSequenceNumber{};
-    int64_t lastUpdatedMillis{};
+    std::chrono::milliseconds lastUpdated;
+    std::vector<IcebergSnapshot> snapshots;
     std::unordered_map<std::string, std::string> properties;
-    std::unordered_map<int64_t, std::unique_ptr<IcebergSnapshot>> snapshots;
 };
 
 } // namespace molecula

@@ -16,6 +16,68 @@ public:
     std::unordered_map<std::string, std::string>* properties{};
 };
 
+bool IcebergSnapshot::visit(std::string_view name, int64_t value) {
+    if (name.size() < 2) {
+        return true;
+    }
+    switch (name[1]) {
+        case 'c':
+            if (name == "schema-id") {
+                LOG(INFO) << "Schema id: " << value;
+                schemaId = value;
+            }
+            break;
+        case 'e':
+            if (name == "sequence-number") {
+                LOG(INFO) << "Sequence number: " << value;
+                sequenceNumber = value;
+            }
+            break;
+        case 'i':
+            if (name == "timestamp-ms") {
+                LOG(INFO) << "Timestamp: " << value;
+                timestamp = std::chrono::milliseconds{value};
+            }
+            break;
+        case 'n':
+            if (name == "snapshot-id") {
+                LOG(INFO) << "Snapshot id: " << value;
+                id = value;
+            }
+            break;
+    }
+    return true;
+}
+
+bool IcebergSnapshot::visit(std::string_view name, std::string_view value) {
+    if (name == "manifest-list") {
+        LOG(INFO) << "Manifest list: " << value;
+        manifestList = value;
+    }
+    return true;
+}
+
+template <typename T>
+class ObjectArrayVisitor : public JsonVisitor {
+public:
+    // ObjectVisitor must implement the JsonVisitor interface.
+    using ObjectVisitor = T;
+
+    explicit ObjectArrayVisitor(std::vector<ObjectVisitor>* array) : array{array} {}
+
+    bool visit(std::string_view name, JsonObject* object) override {
+        ObjectVisitor visitor;
+        if (!jsonAccept(&visitor, object)) {
+            return false;
+        }
+        array->emplace_back(std::move(visitor));
+        return true;
+    }
+
+private:
+    std::vector<ObjectVisitor>* array{};
+};
+
 std::unique_ptr<IcebergMetadata> IcebergMetadata::fromJson(ByteBuffer& buffer) {
     auto metadata = std::make_unique<IcebergMetadata>();
     if (!jsonParse(buffer, metadata.get())) {
@@ -62,7 +124,7 @@ bool IcebergMetadata::visit(std::string_view name, int64_t value) {
                     return true;
                 case 'u':
                     if (name == "last-updated-millis") {
-                        lastUpdatedMillis = value;
+                        lastUpdated = std::chrono::milliseconds{value};
                     }
                     return true;
             }
@@ -102,6 +164,10 @@ bool IcebergMetadata::visit(std::string_view name, JsonObject* node) {
 }
 
 bool IcebergMetadata::visit(std::string_view name, JsonArray* node) {
+    if (name == "snapshots") {
+        ObjectArrayVisitor<IcebergSnapshot> visitor(&snapshots);
+        return jsonAccept(&visitor, node);
+    }
     return true;
 }
 

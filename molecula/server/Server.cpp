@@ -50,8 +50,8 @@ void Server::testIceberg() {
     }
 
     auto metadata = IcebergMetadata::fromJson(response.data);
-    LOG(INFO) << "Iceberg UUID: " << metadata->getUuid();
-    LOG(INFO) << "Iceberg location: " << metadata->getLocation();
+    LOG(INFO) << "Table UUID: " << metadata->getUuid();
+    LOG(INFO) << "Table location: " << metadata->getLocation();
 }
 
 } // namespace molecula
