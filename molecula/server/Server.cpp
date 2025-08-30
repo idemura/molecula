@@ -52,6 +52,9 @@ void Server::testIceberg() {
     auto metadata = IcebergMetadata::fromJson(response.data);
     LOG(INFO) << "Table UUID: " << metadata->getUuid();
     LOG(INFO) << "Table location: " << metadata->getLocation();
+
+    auto *currentSnapshot = metadata->findCurrentSnapshot();
+    LOG(INFO) << "Current snapshot manifest list: " << currentSnapshot->getManifestList();
 }
 
 } // namespace molecula
