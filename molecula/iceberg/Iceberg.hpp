@@ -13,6 +13,13 @@
 
 namespace molecula {
 
+class IcebergManifestList {
+public:
+    static std::unique_ptr<IcebergManifestList> fromAvro(ByteBuffer& buffer);
+
+private:
+};
+
 class IcebergSnapshot : public JsonVisitor {
 public:
     friend class IcebergMetadata;

@@ -42,19 +42,33 @@ void Server::stop() {
 
 void Server::testIceberg() {
     LOG(INFO) << "Testing Iceberg...";
-    S3GetObjectRequest req{"datalake", "db/testtbl/metadata/v2.metadata.json"};
-    auto response = s3Client->getObject(req).get();
-    if (response.status != 200) {
-        LOG(ERROR) << "Failed to get Iceberg metadata, status: " << response.status;
+    S3GetObjectRequest s3GetMetadataRequest{"datalake", "db/testtbl/metadata/v2.metadata.json"};
+    auto s3GetMetadata = s3Client->getObject(s3GetMetadataRequest).get();
+    if (s3GetMetadata.status != 200) {
+        LOG(ERROR) << "Failed to get Iceberg metadata, status: " << s3GetMetadata.status;
         return;
     }
 
-    auto metadata = IcebergMetadata::fromJson(response.data);
+    auto metadata = IcebergMetadata::fromJson(s3GetMetadata.data);
     LOG(INFO) << "Table UUID: " << metadata->getUuid();
     LOG(INFO) << "Table location: " << metadata->getLocation();
 
-    auto *currentSnapshot = metadata->findCurrentSnapshot();
+    auto* currentSnapshot = metadata->findCurrentSnapshot();
+    if (!currentSnapshot) {
+        LOG(ERROR) << "No current snapshot found";
+        return;
+    }
+
     LOG(INFO) << "Current snapshot manifest list: " << currentSnapshot->getManifestList();
+
+    S3GetObjectRequest s3GetManifestListRequest{"datalake", "db/testtbl/metadata/v2.metadata.json"};
+    auto s3GetManifestList = s3Client->getObject(s3GetManifestListRequest).get();
+    if (s3GetManifestList.status != 200) {
+        LOG(ERROR) << "Failed to get Iceberg metadata, status: " << s3GetManifestList.status;
+        return;
+    }
+
+    auto manifestList = IcebergManifestList::fromAvro(s3GetManifestList.data);
 }
 
 } // namespace molecula

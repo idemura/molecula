@@ -32,6 +32,7 @@ target_link_libraries(
 if(MOLECULA_BUILD_TESTS)
     add_executable(
         molecula_s3_test
+        S3Client_Test.cpp
         S3Request_Test.cpp
     )
 

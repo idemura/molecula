@@ -7,6 +7,33 @@
 
 namespace molecula {
 
+S3Id S3Id::fromString(std::string uri) {
+    size_t colonPos = uri.find(':');
+    if (colonPos == std::string::npos) {
+        return S3Id{};
+    }
+    if (uri.size() < colonPos + 3) {
+        return S3Id{};
+    }
+    if (!(uri[colonPos + 1] == '/' && uri[colonPos + 2] == '/')) {
+        return S3Id{};
+    }
+    size_t bucketStart = colonPos + 3;
+    size_t bucketEnd = uri.find('/', bucketStart);
+    if (bucketEnd == std::string::npos || bucketEnd == bucketStart) {
+        return S3Id{};
+    }
+    return S3Id{std::move(uri), bucketStart, bucketEnd};
+}
+
+S3Id S3Id::fromPieces(std::string_view bucket, std::string_view key) {
+    std::string uri{"s3://"};
+    uri.append(bucket);
+    uri.append("/");
+    uri.append(key);
+    return S3Id{std::move(uri), 5, 5 + bucket.size()};
+}
+
 S3GetObjectInfo::S3GetObjectInfo(HttpResponse response) : status{response.status} {
     if (is2xx(status)) {
         etag = response.headers.get("etag");

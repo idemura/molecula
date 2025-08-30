@@ -19,6 +19,44 @@ public:
     bool pathStyle{true};
 };
 
+// S3 object identifier. Stores as a full string for less allocations and better cache locality.
+// Parses bucket/key at the construction time.
+class S3Id {
+public:
+    // Returns empty if falied to parse.
+    static S3Id fromString(std::string uri);
+    static S3Id fromPieces(std::string_view bucket, std::string_view key);
+
+    bool empty() const {
+        return str.empty();
+    }
+    std::string_view uri() const {
+        return str;
+    }
+    std::string_view schema() const {
+        return substring(0, bucketStart - 3);
+    }
+    std::string_view bucket() const {
+        return substring(bucketStart, bucketEnd);
+    }
+    std::string_view key() const {
+        return substring(bucketEnd + 1, str.size());
+    }
+
+private:
+    S3Id() = default;
+    S3Id(std::string uri, size_t bucketStart, size_t bucketEnd) :
+        str{std::move(uri)}, bucketStart{bucketStart}, bucketEnd{bucketEnd} {}
+
+    std::string_view substring(size_t first, size_t last) const {
+        return std::string_view{str.data() + first, last - first};
+    }
+
+    std::string str;
+    size_t bucketStart{};
+    size_t bucketEnd{};
+};
+
 class S3GetObjectInfoRequest {
 public:
     S3GetObjectInfoRequest(std::string_view bucket, std::string_view key) :

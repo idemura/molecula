@@ -182,4 +182,9 @@ IcebergSnapshot* IcebergMetadata::findCurrentSnapshot() {
     return nullptr;
 }
 
+std::unique_ptr<IcebergManifestList> IcebergManifestList::fromAvro(ByteBuffer& buffer) {
+    auto manifestList = std::make_unique<IcebergManifestList>();
+    return manifestList;
+}
+
 } // namespace molecula
