@@ -20,6 +20,7 @@ public:
     virtual JsonVisit visit(std::string_view name, int64_t value);
     virtual JsonVisit visit(std::string_view name, std::string_view value);
     virtual JsonVisit visit(std::string_view name, bool value);
+    virtual JsonVisit visit(std::string_view name, double value);
     virtual JsonVisit visit(std::string_view name, JsonObject* node);
     virtual JsonVisit visit(std::string_view name, JsonArray* node);
 };

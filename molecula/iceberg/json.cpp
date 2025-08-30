@@ -22,6 +22,10 @@ JsonVisit JsonVisitor::visit(std::string_view name, bool value) {
     return JsonVisit::Continue;
 }
 
+JsonVisit JsonVisitor::visit(std::string_view name, double value) {
+    return JsonVisit::Continue;
+}
+
 JsonVisit JsonVisitor::visit(std::string_view name, JsonObject* node) {
     return JsonVisit::Continue;
 }
@@ -44,6 +48,13 @@ struct JsonArray {
     json::dom::array element;
 };
 
+template <typename T>
+inline T jsonGetValue(json::dom::element element) {
+    T value{};
+    (void)element.get(value);
+    return value;
+}
+
 static JsonVisit
 jsonAcceptDomElement(JsonVisitor* visitor, std::string_view name, json::dom::element element) {
     switch (element.type()) {
@@ -55,26 +66,22 @@ jsonAcceptDomElement(JsonVisitor* visitor, std::string_view name, json::dom::ele
             JsonArray node{element};
             return visitor->visit(name, &node);
         }
-        case json::dom::element_type::INT64: {
-            int64_t v{};
-            (void)element.get(v);
-            return visitor->visit(name, v);
-        }
-        case json::dom::element_type::STRING: {
-            std::string_view v;
-            (void)element.get(v);
-            return visitor->visit(name, v);
-        }
-        case json::dom::element_type::BOOL: {
-            bool v{};
-            (void)element.get(v);
-            return visitor->visit(name, v);
-        }
+        case json::dom::element_type::INT64:
+            return visitor->visit(name, jsonGetValue<int64_t>(element));
+        case json::dom::element_type::STRING:
+            return visitor->visit(name, jsonGetValue<std::string_view>(element));
+        case json::dom::element_type::BOOL:
+            return visitor->visit(name, jsonGetValue<bool>(element));
+        case json::dom::element_type::DOUBLE:
+            return visitor->visit(name, jsonGetValue<double>(element));
+        case json::dom::element_type::UINT64:
+            LOG(ERROR) << "Integer is out of signed 64-bit int";
+            return JsonVisit::Stop;
         case json::dom::element_type::NULL_VALUE:
             return JsonVisit::Continue;
-        default:
-            LOG(ERROR) << "Unsupported element type " << element.type();
     }
+    // Shouldn't be here actually.
+    LOG(ERROR) << "Unknown JSON element type " << element.type();
     return JsonVisit::Stop;
 }
 
