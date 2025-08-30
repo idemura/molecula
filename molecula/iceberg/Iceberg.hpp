@@ -22,8 +22,8 @@ public:
     std::string manifestList;
 
     IcebergSnapshot() = default;
-    bool visit(std::string_view name, int64_t value) override;
-    bool visit(std::string_view name, std::string_view value) override;
+    JsonVisit visit(std::string_view name, int64_t value) override;
+    JsonVisit visit(std::string_view name, std::string_view value) override;
 };
 
 // Iceberg table metadata.
@@ -41,11 +41,11 @@ public:
         return location;
     }
 
-    bool visit(std::string_view name, int64_t value) override;
-    bool visit(std::string_view name, std::string_view value) override;
-    bool visit(std::string_view name, bool value) override;
-    bool visit(std::string_view name, JsonObject* node) override;
-    bool visit(std::string_view name, JsonArray* node) override;
+    JsonVisit visit(std::string_view name, int64_t value) override;
+    JsonVisit visit(std::string_view name, std::string_view value) override;
+    JsonVisit visit(std::string_view name, bool value) override;
+    JsonVisit visit(std::string_view name, JsonObject* node) override;
+    JsonVisit visit(std::string_view name, JsonArray* node) override;
 
 private:
     std::string uuid;
