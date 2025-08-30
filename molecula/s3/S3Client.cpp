@@ -7,6 +7,13 @@
 
 namespace molecula {
 
+std::time_t parseS3Time(std::string_view timeStr) {
+    std::tm tm{};
+    std::istringstream ss{std::string{timeStr}};
+    ss >> std::get_time(&tm, "%a, %d %b %Y %H:%M:%S GMT");
+    return ::timegm(&tm);
+}
+
 S3Id S3Id::fromString(std::string uri) {
     size_t colonPos = uri.find(':');
     if (colonPos == std::string::npos) {
@@ -41,10 +48,7 @@ S3GetObjectInfo::S3GetObjectInfo(HttpResponse response) : status{response.status
 
         auto lastModifiedStr = response.headers.get("last-modified");
         if (!lastModifiedStr.empty()) {
-            std::tm tm{};
-            std::istringstream ss{std::string{lastModifiedStr}};
-            ss >> std::get_time(&tm, "%a, %d %b %Y %H:%M:%S GMT");
-            lastModified = ::timegm(&tm);
+            lastModified = parseS3Time(lastModifiedStr);
         }
     } else {
         LOG(ERROR) << "Failed GetObjectInfo: " << status << "\n" << response.body.view();

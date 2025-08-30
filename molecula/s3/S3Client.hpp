@@ -110,5 +110,6 @@ public:
 };
 
 std::unique_ptr<S3Client> createS3Client(HttpClient* httpClient, const S3ClientConfig& config);
+std::time_t parseS3Time(std::string_view timeStr);
 
 } // namespace molecula
