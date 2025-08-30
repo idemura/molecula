@@ -88,7 +88,8 @@ size_t HttpHeaders::getContentLength() const {
 
 void HttpResponse::appendToBody(const char* data, size_t size) {
     if (body.capacity() == 0) {
-        body.reserve(headers.getContentLength());
+        constexpr size_t kMaxReserve = 16 * 1024 * 1024; // 16MB
+        body.reserve(std::min(headers.getContentLength(), kMaxReserve));
     }
     body.append(data, size);
 }
