@@ -84,6 +84,7 @@ std::unique_ptr<IcebergMetadata> IcebergMetadata::fromJson(ByteBuffer& buffer) {
     if (!jsonParse(buffer, metadata.get())) {
         return nullptr;
     }
+    // TODO: Validate required fields.
     return metadata;
 }
 
@@ -170,6 +171,15 @@ JsonVisit IcebergMetadata::visit(std::string_view name, JsonArray* node) {
         return jsonAccept(&visitor, node);
     }
     return JsonVisit::Continue;
+}
+
+IcebergSnapshot* IcebergMetadata::findCurrentSnapshot() {
+    for (auto& snapshot : snapshots) {
+        if (snapshot.id == currentSnapshotId) {
+            return &snapshot;
+        }
+    }
+    return nullptr;
 }
 
 } // namespace molecula

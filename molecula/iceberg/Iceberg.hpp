@@ -15,15 +15,22 @@ namespace molecula {
 
 class IcebergSnapshot : public JsonVisitor {
 public:
+    friend class IcebergMetadata;
+
+    IcebergSnapshot() = default;
+    JsonVisit visit(std::string_view name, int64_t value) override;
+    JsonVisit visit(std::string_view name, std::string_view value) override;
+
+    std::string_view getManifestList() const {
+        return manifestList;
+    }
+
+private:
     int64_t id{};
     int64_t schemaId{};
     int64_t sequenceNumber{};
     std::chrono::milliseconds timestamp;
     std::string manifestList;
-
-    IcebergSnapshot() = default;
-    JsonVisit visit(std::string_view name, int64_t value) override;
-    JsonVisit visit(std::string_view name, std::string_view value) override;
 };
 
 // Iceberg table metadata.
@@ -40,6 +47,8 @@ public:
     std::string_view getLocation() const {
         return location;
     }
+
+    IcebergSnapshot* findCurrentSnapshot();
 
     JsonVisit visit(std::string_view name, int64_t value) override;
     JsonVisit visit(std::string_view name, std::string_view value) override;
