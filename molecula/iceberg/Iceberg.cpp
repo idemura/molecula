@@ -9,7 +9,7 @@
 
 namespace velox = facebook::velox;
 
-namespace molecula {
+namespace molecula::iceberg {
 
 // TODO: Store int64_t properties.
 class PropertiesVisitor : public JsonVisitor {
@@ -23,7 +23,7 @@ public:
     std::unordered_map<std::string, std::string>* properties{};
 };
 
-JsonVisit IcebergSnapshot::visit(std::string_view name, int64_t value) {
+JsonVisit Snapshot::visit(std::string_view name, int64_t value) {
     if (name.size() < 2) {
         return JsonVisit::Continue;
     }
@@ -56,7 +56,7 @@ JsonVisit IcebergSnapshot::visit(std::string_view name, int64_t value) {
     return JsonVisit::Continue;
 }
 
-JsonVisit IcebergSnapshot::visit(std::string_view name, std::string_view value) {
+JsonVisit Snapshot::visit(std::string_view name, std::string_view value) {
     if (name == "manifest-list") {
         LOG(INFO) << "Manifest list: " << value;
         manifestList = value;
@@ -86,8 +86,8 @@ private:
     std::vector<ObjectVisitor>* array{};
 };
 
-std::unique_ptr<IcebergMetadata> IcebergMetadata::fromJson(ByteBuffer& buffer) {
-    auto metadata = std::make_unique<IcebergMetadata>();
+std::unique_ptr<Metadata> Metadata::fromJson(ByteBuffer& buffer) {
+    auto metadata = std::make_unique<Metadata>();
     if (!jsonParse(buffer, metadata.get())) {
         return nullptr;
     }
@@ -95,7 +95,7 @@ std::unique_ptr<IcebergMetadata> IcebergMetadata::fromJson(ByteBuffer& buffer) {
     return metadata;
 }
 
-JsonVisit IcebergMetadata::visit(std::string_view name, int64_t value) {
+JsonVisit Metadata::visit(std::string_view name, int64_t value) {
     // Visitor allows us to make a very efficient dispatch.
     switch (name[0]) {
         case 'c':
@@ -151,7 +151,7 @@ JsonVisit IcebergMetadata::visit(std::string_view name, int64_t value) {
     return JsonVisit::Continue;
 }
 
-JsonVisit IcebergMetadata::visit(std::string_view name, std::string_view value) {
+JsonVisit Metadata::visit(std::string_view name, std::string_view value) {
     // Visitor allows us to make a very efficient dispatch.
     switch (name[0]) {
         case 'l':
@@ -168,11 +168,11 @@ JsonVisit IcebergMetadata::visit(std::string_view name, std::string_view value) 
     return JsonVisit::Continue;
 }
 
-JsonVisit IcebergMetadata::visit(std::string_view name, bool value) {
+JsonVisit Metadata::visit(std::string_view name, bool value) {
     return JsonVisit::Continue;
 }
 
-JsonVisit IcebergMetadata::visit(std::string_view name, JsonObject* node) {
+JsonVisit Metadata::visit(std::string_view name, JsonObject* node) {
     if (name == "properties") {
         PropertiesVisitor visitor;
         visitor.properties = &properties;
@@ -181,15 +181,15 @@ JsonVisit IcebergMetadata::visit(std::string_view name, JsonObject* node) {
     return JsonVisit::Continue;
 }
 
-JsonVisit IcebergMetadata::visit(std::string_view name, JsonArray* node) {
+JsonVisit Metadata::visit(std::string_view name, JsonArray* node) {
     if (name == "snapshots") {
-        ObjectArrayVisitor<IcebergSnapshot> visitor(&snapshots);
+        ObjectArrayVisitor<Snapshot> visitor(&snapshots);
         return jsonAccept(&visitor, node);
     }
     return JsonVisit::Continue;
 }
 
-IcebergSnapshot* IcebergMetadata::findCurrentSnapshot() {
+Snapshot* Metadata::findCurrentSnapshot() {
     for (auto& snapshot : snapshots) {
         if (snapshot.id == currentSnapshotId) {
             return &snapshot;
@@ -245,7 +245,7 @@ std::unique_ptr<folly::compression::Codec> getAvroCompressionCodec(std::string_v
     }
 }
 
-std::unique_ptr<IcebergManifestList> IcebergManifestList::fromAvro(ByteBuffer& buffer) {
+std::unique_ptr<ManifestList> ManifestList::fromAvro(ByteBuffer& buffer) {
     AvroReader reader{buffer.data(), buffer.size()};
     if (reader.readString(4) != "Obj\x01") {
         LOG(ERROR) << "Invalid Avro data";
@@ -305,8 +305,8 @@ std::unique_ptr<IcebergManifestList> IcebergManifestList::fromAvro(ByteBuffer& b
         LOG(INFO) << "Manifest file: " << name;
     }
 
-    auto manifestList = std::make_unique<IcebergManifestList>();
+    auto manifestList = std::make_unique<ManifestList>();
     return manifestList;
 }
 
-} // namespace molecula
+} // namespace molecula::iceberg

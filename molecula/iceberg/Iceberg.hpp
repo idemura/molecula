@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace molecula {
+namespace molecula::iceberg {
 
 // Data reader from Avro file. If reached end of data, all read operations will return
 // default values.
@@ -34,18 +34,18 @@ private:
     folly::StringPiece sp;
 };
 
-class IcebergManifestList {
+class ManifestList {
 public:
-    static std::unique_ptr<IcebergManifestList> fromAvro(ByteBuffer& buffer);
+    static std::unique_ptr<ManifestList> fromAvro(ByteBuffer& buffer);
 
 private:
 };
 
-class IcebergSnapshot : public JsonVisitor {
+class Snapshot : public JsonVisitor {
 public:
-    friend class IcebergMetadata;
+    friend class Metadata;
 
-    IcebergSnapshot() = default;
+    Snapshot() = default;
     JsonVisit visit(std::string_view name, int64_t value) override;
     JsonVisit visit(std::string_view name, std::string_view value) override;
 
@@ -62,11 +62,11 @@ private:
 };
 
 // Iceberg table metadata.
-class IcebergMetadata : public JsonVisitor {
+class Metadata : public JsonVisitor {
 public:
-    static std::unique_ptr<IcebergMetadata> fromJson(ByteBuffer& buffer);
+    static std::unique_ptr<Metadata> fromJson(ByteBuffer& buffer);
 
-    IcebergMetadata() = default;
+    Metadata() = default;
 
     std::string_view getUuid() const {
         return uuid;
@@ -76,7 +76,7 @@ public:
         return location;
     }
 
-    IcebergSnapshot* findCurrentSnapshot();
+    Snapshot* findCurrentSnapshot();
 
     JsonVisit visit(std::string_view name, int64_t value) override;
     JsonVisit visit(std::string_view name, std::string_view value) override;
@@ -92,8 +92,8 @@ private:
     int64_t lastColumnId{};
     int64_t lastSequenceNumber{};
     std::chrono::milliseconds lastUpdated;
-    std::vector<IcebergSnapshot> snapshots;
+    std::vector<Snapshot> snapshots;
     std::unordered_map<std::string, std::string> properties;
 };
 
-} // namespace molecula
+} // namespace molecula::iceberg

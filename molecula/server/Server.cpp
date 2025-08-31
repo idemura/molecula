@@ -49,7 +49,7 @@ void Server::testIceberg() {
         return;
     }
 
-    auto metadata = IcebergMetadata::fromJson(s3GetMetadata.data);
+    auto metadata = iceberg::Metadata::fromJson(s3GetMetadata.data);
     LOG(INFO) << "Table UUID: " << metadata->getUuid();
     LOG(INFO) << "Table location: " << metadata->getLocation();
 
@@ -69,7 +69,7 @@ void Server::testIceberg() {
         return;
     }
 
-    auto manifestList = IcebergManifestList::fromAvro(s3GetManifestList.data);
+    auto manifestList = iceberg::ManifestList::fromAvro(s3GetManifestList.data);
 }
 
 } // namespace molecula
