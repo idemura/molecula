@@ -1,6 +1,7 @@
 #include "molecula/iceberg/Iceberg.hpp"
 
 #include "folly/compression/Compression.h"
+#include "folly/compression/Zlib.h"
 #include "folly/container/MapUtil.h"
 #include "velox/common/encode/Coding.h"
 
@@ -232,14 +233,16 @@ std::string_view AvroReader::readString() {
     return readString(readInt());
 }
 
-std::unique_ptr<folly::compression::Codec> getAvroCodec(std::string_view name) {
+std::unique_ptr<folly::compression::Codec> getAvroCompressionCodec(std::string_view name) {
+    using namespace folly::compression;
     if (name == "deflate") {
-        LOG(INFO) << "Codec2: " << name;
-        return folly::compression::getCodec(folly::compression::CodecType::ZLIB);
+        return zlib::getCodec(zlib::Options{zlib::Options::Format::RAW});
     } else if (name == "null") {
-        return folly::compression::getCodec(folly::compression::CodecType::NO_COMPRESSION);
+        return getCodec(CodecType::NO_COMPRESSION);
+    } else {
+        LOG(ERROR) << "Unsupported Avro codec: " << name;
+        return nullptr;
     }
-    return nullptr;
 }
 
 std::unique_ptr<IcebergManifestList> IcebergManifestList::fromAvro(ByteBuffer& buffer) {
@@ -262,7 +265,7 @@ std::unique_ptr<IcebergManifestList> IcebergManifestList::fromAvro(ByteBuffer& b
     }
     // LOG(INFO)<<"end " <<reader.readInt();
     if (reader.readByte() != 0) {
-        LOG(ERROR) << "Invalid Avro file";
+        LOG(ERROR) << "Invalid Avro data";
         return nullptr;
     }
 
@@ -272,7 +275,7 @@ std::unique_ptr<IcebergManifestList> IcebergManifestList::fromAvro(ByteBuffer& b
     LOG(INFO) << "Number of objects: " << numObjects;
     auto data = reader.readString();
     LOG(INFO) << "Compressed size: " << data.size();
-    LOG(INFO) << "Data size: " << reader.remaining();
+    LOG(INFO) << "Remaining size: " << reader.remaining();
     // LOG(INFO) << "Byte: " << (int)(unsigned char)reader.readByte();
     // if (reader.readByte() != 0) {
     //     LOG(ERROR) << "Invalid Avro file";
@@ -281,21 +284,26 @@ std::unique_ptr<IcebergManifestList> IcebergManifestList::fromAvro(ByteBuffer& b
     auto sync2 = reader.readString(16);
 
     auto codecName = folly::get_default(metadata, "avro.codec");
-    std::unique_ptr<folly::compression::Codec> codec = getAvroCodec(codecName);
+    std::unique_ptr<folly::compression::Codec> codec = getAvroCompressionCodec(codecName);
     if (!codec) {
-        LOG(ERROR) << "Unsupported codec: " << codecName;
         return nullptr;
     }
 
-    auto compressedData = folly::IOBuf::wrapBuffer(data.data(), data.size());
-    folly::Optional<uint64_t> uncompressedLength = codec->getUncompressedLength(
-            compressedData.get(), folly::Optional<uint64_t>(data.size()));
-    if (uncompressedLength) {
-        LOG(INFO) << "Uncompressed length: " << *uncompressedLength;
-    }
+    auto compressedBuf = folly::IOBuf::wrapBuffer(data.data(), data.size());
+    // folly::Optional<uint64_t> uncompressedLength = codec->getUncompressedLength(
+    //         compressedBuf.get(), folly::Optional<uint64_t>());
+    // if (uncompressedLength) {
+    //     LOG(INFO) << "Uncompressed length: " << *uncompressedLength;
+    // }
     LOG(INFO) << "Before uncompress";
-    std::unique_ptr<folly::IOBuf> uncompressedData =
-            codec->uncompress(compressedData.get(), uncompressedLength);
+    std::unique_ptr<folly::IOBuf> uncompressedData = codec->uncompress(compressedBuf.get());
+    uncompressedData->coalesce();
+
+    AvroReader dataReader{(const char*)uncompressedData->data(), uncompressedData->length()};
+    for (int64_t i = 0; i < numObjects; i++) {
+        auto name = dataReader.readString();
+        LOG(INFO) << "Manifest file: " << name;
+    }
 
     auto manifestList = std::make_unique<IcebergManifestList>();
     return manifestList;
