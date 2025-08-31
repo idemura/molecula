@@ -1,192 +1,204 @@
 #include "molecula/iceberg/Iceberg.hpp"
 
+#include "folly/Range.h"
 #include "folly/compression/Compression.h"
 #include "folly/compression/Zlib.h"
 #include "folly/container/MapUtil.h"
+#include "molecula/iceberg/json.hpp"
 #include "velox/common/encode/Coding.h"
 
 #include <glog/logging.h>
+
+#include <stdexcept>
 
 namespace velox = facebook::velox;
 
 namespace molecula::iceberg {
 
-// TODO: Store int64_t properties.
-class PropertiesVisitor : public json::Visitor {
-public:
-    json::Next visit(std::string_view name, std::string_view value) override {
-        LOG(INFO) << "Property: " << name << " = " << value;
-        properties->emplace(std::string{name}, std::string{value});
-        return json::Next::Continue;
-    }
+const char* kErrorMetadata{"ICE-00 Metadata JSON"};
+const char* kErrorMetadataVersion{"ICE-01 Metadata version"};
+const char* kErrorAvroRead{"ICE-01 Avro read"};
+const char* kErrorAvroCodec{"ICE-02 Avro codec"};
+const char* kErrorAvroSchema{"ICE-03 Avro schema"};
+const char* kErrorManifestList{"ICE-04 Manifest list"};
 
-    std::unordered_map<std::string, std::string>* properties{};
-};
-
-json::Next Snapshot::visit(std::string_view name, int64_t value) {
-    if (name.size() < 2) {
-        return json::Next::Continue;
+// JSON properties reader
+void readProperties(
+        json::dom::element element,
+        std::unordered_map<std::string, std::string>& properties) {
+    json::dom::object object;
+    if (element.get(object) != json::SUCCESS) {
+        throw std::runtime_error(kErrorMetadata);
     }
-    switch (name[1]) {
-        case 'c':
-            if (name == "schema-id") {
-                LOG(INFO) << "Schema id: " << value;
-                schemaId = value;
-            }
-            return json::Next::Continue;
-        case 'e':
-            if (name == "sequence-number") {
-                LOG(INFO) << "Sequence number: " << value;
-                sequenceNumber = value;
-            }
-            return json::Next::Continue;
-        case 'i':
-            if (name == "timestamp-ms") {
-                LOG(INFO) << "Timestamp: " << value;
-                timestamp = std::chrono::milliseconds{value};
-            }
-            return json::Next::Continue;
-        case 'n':
-            if (name == "snapshot-id") {
-                LOG(INFO) << "Snapshot id: " << value;
-                id = value;
-            }
-            return json::Next::Continue;
+    for (const auto [name, e] : object) {
+        std::string value;
+        json::get_value(e, value);
+        properties.emplace(std::string{name}, std::move(value));
     }
-    return json::Next::Continue;
 }
 
-json::Next Snapshot::visit(std::string_view name, std::string_view value) {
-    if (name == "manifest-list") {
-        LOG(INFO) << "Manifest list: " << value;
-        manifestList = value;
-    }
-    return json::Next::Continue;
-    ;
-}
-
-template <typename T>
-class ObjectArrayVisitor : public json::Visitor {
+class SnapshotReader {
 public:
-    // ObjectVisitor must implement the json::Visitor interface.
-    using ObjectVisitor = T;
+    explicit SnapshotReader(Snapshot* snapshot) : snapshot{snapshot} {}
 
-    explicit ObjectArrayVisitor(std::vector<ObjectVisitor>* array) : array{array} {}
-
-    json::Next visit(std::string_view name, json::Object* object) override {
-        ObjectVisitor visitor;
-        if (json::accept(&visitor, object) == json::Next::Stop) {
-            return json::Next::Stop;
+    void read(json::dom::element root) {
+        json::dom::object object;
+        if (root.get(object) != json::SUCCESS) {
+            throw std::runtime_error(kErrorMetadata);
         }
-        array->emplace_back(std::move(visitor));
-        return json::Next::Continue;
+        for (const auto [name, element] : object) {
+            lookupAndSet(name, element);
+        }
     }
 
 private:
-    std::vector<ObjectVisitor>* array{};
+    void lookupAndSet(std::string_view name, json::dom::element element) {
+        if (name.size() < 6) {
+            return;
+        }
+        switch (name[1]) {
+        case 'c':
+            if (name == "schema-id") {
+                json::get_value(element, snapshot->schemaId);
+            }
+            break;
+        case 'e':
+            if (name == "sequence-number") {
+                json::get_value(element, snapshot->sequenceNumber);
+            }
+            break;
+        case 'i':
+            if (name == "timestamp-ms") {
+                json::get_value(element, snapshot->timestamp);
+            }
+            break;
+        case 'n':
+            if (name == "snapshot-id") {
+                json::get_value(element, snapshot->id);
+            }
+            break;
+        case 'a':
+            if (name == "manifest-list") {
+                json::get_value(element, snapshot->manifestList);
+            }
+            break;
+        }
+    }
+
+    Snapshot* snapshot{};
 };
 
-std::unique_ptr<Metadata> Metadata::fromJson(ByteBuffer& buffer) {
-    auto metadata = std::make_unique<Metadata>();
-    if (!json::parse(buffer, metadata.get())) {
-        return nullptr;
-    }
-    // TODO: Validate required fields.
-    return metadata;
-}
+class MetadataReader {
+public:
+    explicit MetadataReader(Metadata* metadata) : metadata{metadata} {}
 
-json::Next Metadata::visit(std::string_view name, int64_t value) {
-    // Visitor allows us to make a very efficient dispatch.
-    switch (name[0]) {
+    void read(json::dom::element element) {
+        json::dom::object object;
+        if (element.get(object) != json::SUCCESS) {
+            throw std::runtime_error(kErrorMetadata);
+        }
+        for (const auto [name, element] : object) {
+            lookupAndSet(name, element);
+        }
+    }
+
+private:
+    void lookupAndSet(std::string_view name, json::dom::element element) {
+        switch (name[0]) {
         case 'c':
             // Check for "current-xxx"
             if (name.size() < 10) {
-                return json::Next::Continue;
+                return;
             }
             switch (name[9]) {
-                case 'c':
-                    if (name == "current-schema-id") {
-                        currentSchemaId = value;
-                    }
-                    return json::Next::Continue;
-                case 'n':
-                    if (name == "current-snapshot-id") {
-                        currentSnapshotId = value;
-                    }
-                    return json::Next::Continue;
+            case 'c':
+                if (name == "current-schema-id") {
+                    json::get_value(element, metadata->currentSchemaId);
+                }
+                break;
+            case 'n':
+                if (name == "current-snapshot-id") {
+                    json::get_value(element, metadata->currentSnapshotId);
+                }
+                break;
             }
-            return json::Next::Continue;
+            break;
         case 'f':
             if (name == "format-version") {
+                int64_t version{};
+                json::get_value(element, version);
                 // We only support format version 2.
-                if (value != 2) {
-                    LOG(ERROR) << "Unsupported format version: " << value;
-                    return json::Next::Stop;
+                if (version != 2) {
+                    throw std::runtime_error(kErrorMetadataVersion);
                 }
             }
-            return json::Next::Continue;
+            break;
         case 'l':
             if (name.size() < 6) {
-                return json::Next::Continue;
+                return;
             }
             switch (name[5]) {
-                case 'c':
-                    if (name == "last-column-id") {
-                        lastColumnId = value;
-                    }
-                    return json::Next::Continue;
-                case 's':
-                    if (name == "last-sequence-number") {
-                        lastSequenceNumber = value;
-                    }
-                    return json::Next::Continue;
-                case 'u':
-                    if (name == "last-updated-millis") {
-                        lastUpdated = std::chrono::milliseconds{value};
-                    }
-                    return json::Next::Continue;
+            case 'c':
+                if (name == "last-column-id") {
+                    json::get_value(element, metadata->lastColumnId);
+                }
+                break;
+            case 'i':
+                if (name == "location") {
+                    json::get_value(element, metadata->location);
+                }
+                break;
+            case 's':
+                if (name == "last-sequence-number") {
+                    json::get_value(element, metadata->lastSequenceNumber);
+                }
+                break;
+            case 'u':
+                if (name == "last-updated-ms") {
+                    json::get_value(element, metadata->lastUpdated);
+                }
+                break;
             }
-            return json::Next::Continue;
-    }
-    return json::Next::Continue;
-}
-
-json::Next Metadata::visit(std::string_view name, std::string_view value) {
-    // Visitor allows us to make a very efficient dispatch.
-    switch (name[0]) {
-        case 'l':
-            if (name == "location") {
-                location = value;
+            break;
+        case 's':
+            if (name == "snapshots") {
+                json::dom::array array;
+                if (element.get(array) != json::SUCCESS) {
+                    throw std::runtime_error(kErrorMetadata);
+                }
+                for (json::dom::element e : array) {
+                    Snapshot snapshot;
+                    SnapshotReader reader{&snapshot};
+                    reader.read(e);
+                    metadata->snapshots.push_back(std::move(snapshot));
+                }
             }
-            return json::Next::Continue;
+            break;
+        case 'p':
+            if (name == "properties") {
+                readProperties(element, metadata->properties);
+            }
+            break;
         case 't':
             if (name == "table-uuid") {
-                uuid = value;
+                json::get_value(element, metadata->uuid);
             }
-            return json::Next::Continue;
+            break;
+        }
     }
-    return json::Next::Continue;
-}
 
-json::Next Metadata::visit(std::string_view name, bool value) {
-    return json::Next::Continue;
-}
+    Metadata* metadata{};
+};
 
-json::Next Metadata::visit(std::string_view name, json::Object* node) {
-    if (name == "properties") {
-        PropertiesVisitor visitor;
-        visitor.properties = &properties;
-        return json::accept(&visitor, node);
+std::unique_ptr<Metadata> Metadata::fromJson(ByteBuffer& buffer) {
+    json::dom::document doc;
+    if (!json::parse(buffer, doc)) {
+        throw std::runtime_error(kErrorMetadata);
     }
-    return json::Next::Continue;
-}
-
-json::Next Metadata::visit(std::string_view name, json::Array* node) {
-    if (name == "snapshots") {
-        ObjectArrayVisitor<Snapshot> visitor(&snapshots);
-        return json::accept(&visitor, node);
-    }
-    return json::Next::Continue;
+    auto metadata = std::make_unique<Metadata>();
+    MetadataReader reader{metadata.get()};
+    reader.read(doc.root());
+    return metadata;
 }
 
 Snapshot* Metadata::findCurrentSnapshot() {
@@ -198,59 +210,89 @@ Snapshot* Metadata::findCurrentSnapshot() {
     return nullptr;
 }
 
-char AvroReader::readByte() {
-    if (sp.size() == 0) {
-        return 0;
-    }
-    auto result = sp[0];
-    sp.advance(1);
-    return result;
-}
+// Data reader from Avro file. If reached end of data, all read operations will return
+// default values.
+class AvroReader {
+public:
+    AvroReader(const char* data, size_t size) : sp{data, size} {}
 
-int64_t AvroReader::readInt() {
-    if (!velox::Varint::canDecode(sp)) {
-        sp.advance(sp.size());
-        return 0;
+    size_t remaining() const {
+        return sp.size();
     }
-    auto p = sp.data();
-    auto v = static_cast<int64_t>(velox::Varint::decode(&p, sp.size()));
-    sp.advance(p - sp.data());
-    return velox::ZigZag::decode(v);
-}
 
-std::string_view AvroReader::readString(size_t length) {
-    if (sp.size() < length) {
-        // Read to the end
-        sp.advance(sp.size());
-        return std::string_view{};
+    void readMagic() {
+        if (readString(4) != "Obj\x01") {
+            throw std::runtime_error(kErrorAvroRead);
+        }
     }
-    std::string_view result{sp.data(), length};
-    sp.advance(length);
-    return result;
-}
 
-std::string_view AvroReader::readString() {
-    return readString(readInt());
-}
+    char readByte() {
+        if (sp.size() == 0) {
+            throw std::runtime_error(kErrorAvroRead);
+        }
+
+        auto result = sp[0];
+        sp.advance(1);
+        return result;
+    }
+
+    int64_t readInt() {
+        if (!velox::Varint::canDecode(sp)) {
+            throw std::runtime_error(kErrorAvroRead);
+        }
+        auto p = sp.data();
+        auto v = static_cast<int64_t>(velox::Varint::decode(&p, sp.size()));
+        sp.advance(p - sp.data());
+        return velox::ZigZag::decode(v);
+    }
+
+    std::string_view readString(size_t length) {
+        if (sp.size() < length) {
+            throw std::runtime_error(kErrorAvroRead);
+        }
+        std::string_view result{sp.data(), length};
+        sp.advance(length);
+        return result;
+    }
+
+    // Reads string length from data.
+    std::string_view readString() {
+        return readString(readInt());
+    }
+
+private:
+    folly::StringPiece sp;
+};
+
+enum class AvroType { Int32, Int64, String, Record };
 
 std::unique_ptr<folly::compression::Codec> getAvroCompressionCodec(std::string_view name) {
     using namespace folly::compression;
     if (name == "deflate") {
         return zlib::getCodec(zlib::Options{zlib::Options::Format::RAW});
-    } else if (name == "null") {
-        return getCodec(CodecType::NO_COMPRESSION);
-    } else {
-        LOG(ERROR) << "Unsupported Avro codec: " << name;
-        return nullptr;
     }
+    if (name == "null") {
+        return getCodec(CodecType::NO_COMPRESSION);
+    }
+    LOG(ERROR) << "Unsupported Avro codec: " << name;
+    return nullptr;
 }
+
+class ManifestListAvroSchemaRecord {
+public:
+    int64_t id{};
+    std::string name;
+    std::string type;
+};
+
+class ManifestListAvroSchema {
+public:
+    std::vector<ManifestListAvroSchemaRecord> fields;
+};
 
 std::unique_ptr<ManifestList> ManifestList::fromAvro(ByteBuffer& buffer) {
     AvroReader reader{buffer.data(), buffer.size()};
-    if (reader.readString(4) != "Obj\x01") {
-        LOG(ERROR) << "Invalid Avro data";
-        return nullptr;
-    }
+    reader.readMagic();
 
     // Read metadata
     std::unordered_map<std::string_view, std::string_view> metadata;
@@ -265,8 +307,7 @@ std::unique_ptr<ManifestList> ManifestList::fromAvro(ByteBuffer& buffer) {
     }
     // LOG(INFO)<<"end " <<reader.readInt();
     if (reader.readByte() != 0) {
-        LOG(ERROR) << "Invalid Avro data";
-        return nullptr;
+        throw std::runtime_error(kErrorAvroRead);
     }
 
     auto sync1 = reader.readString(16);
@@ -286,7 +327,19 @@ std::unique_ptr<ManifestList> ManifestList::fromAvro(ByteBuffer& buffer) {
     auto codecName = folly::get_default(metadata, "avro.codec");
     std::unique_ptr<folly::compression::Codec> codec = getAvroCompressionCodec(codecName);
     if (!codec) {
-        return nullptr;
+        throw std::runtime_error(kErrorAvroCodec);
+    }
+
+    // Put it in its own buffer for simdjson.
+    auto schema = folly::get_default(metadata, "avro.schema");
+    if (schema.empty()) {
+        throw std::runtime_error(kErrorAvroSchema);
+    }
+    ByteBuffer schemaJsonBuffer(schema.size() + 64);
+    schemaJsonBuffer.append(schema);
+    json::dom::document avroSchemaDoc;
+    if (!json::parse(schemaJsonBuffer, avroSchemaDoc)) {
+        throw std::runtime_error(kErrorAvroSchema);
     }
 
     auto compressedBuf = folly::IOBuf::wrapBuffer(data.data(), data.size());
