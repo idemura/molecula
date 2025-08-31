@@ -25,6 +25,7 @@ class S3Id {
 public:
     // Returns empty if falied to parse.
     static S3Id fromString(std::string uri);
+    static S3Id fromStringView(std::string_view uri);
     static S3Id fromPieces(std::string_view bucket, std::string_view key);
 
     bool empty() const {

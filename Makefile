@@ -1,4 +1,4 @@
-BUILD_TYPE := Debug
+BUILD_TYPE:=Debug
 
 .PHONY: all configure build build_all test clean format
 

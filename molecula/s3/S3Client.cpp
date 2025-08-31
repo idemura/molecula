@@ -33,6 +33,10 @@ S3Id S3Id::fromString(std::string uri) {
     return S3Id{std::move(uri), bucketStart, bucketEnd};
 }
 
+S3Id S3Id::fromStringView(std::string_view uri) {
+    return fromString(std::string{uri});
+}
+
 S3Id S3Id::fromPieces(std::string_view bucket, std::string_view key) {
     std::string uri{"s3://"};
     uri.append(bucket);

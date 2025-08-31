@@ -1,5 +1,6 @@
 #pragma once
 
+#include "folly/Range.h"
 #include "molecula/common/ByteBuffer.hpp"
 #include "molecula/iceberg/json.hpp"
 
@@ -12,6 +13,26 @@
 #include <vector>
 
 namespace molecula {
+
+// Data reader from Avro file. If reached end of data, all read operations will return
+// default values.
+class AvroReader {
+public:
+    AvroReader(const char* data, size_t size) : sp{data, size} {}
+
+    size_t remaining() const {
+        return sp.size();
+    }
+
+    char readByte();
+    int64_t readInt();
+    std::string_view readString(size_t length);
+    // Reads string length from data first.
+    std::string_view readString();
+
+private:
+    folly::StringPiece sp;
+};
 
 class IcebergManifestList {
 public:

@@ -11,6 +11,7 @@ target_include_directories(
     molecula_iceberg
     PUBLIC
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/velox
 )
 
 target_link_libraries(
@@ -24,6 +25,7 @@ target_link_libraries(
     molecula_iceberg
     PUBLIC
     Folly::folly
+    velox_encode
     molecula_common
 )
 

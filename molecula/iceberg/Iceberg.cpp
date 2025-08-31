@@ -1,6 +1,12 @@
 #include "molecula/iceberg/Iceberg.hpp"
 
+#include "folly/compression/Compression.h"
+#include "folly/container/MapUtil.h"
+#include "velox/common/encode/Coding.h"
+
 #include <glog/logging.h>
+
+namespace velox = facebook::velox;
 
 namespace molecula {
 
@@ -109,6 +115,15 @@ JsonVisit IcebergMetadata::visit(std::string_view name, int64_t value) {
                     return JsonVisit::Continue;
             }
             return JsonVisit::Continue;
+        case 'f':
+            if (name == "format-version") {
+                // We only support format version 2.
+                if (value != 2) {
+                    LOG(ERROR) << "Unsupported format version: " << value;
+                    return JsonVisit::Stop;
+                }
+            }
+            return JsonVisit::Continue;
         case 'l':
             if (name.size() < 6) {
                 return JsonVisit::Continue;
@@ -182,7 +197,106 @@ IcebergSnapshot* IcebergMetadata::findCurrentSnapshot() {
     return nullptr;
 }
 
+char AvroReader::readByte() {
+    if (sp.size() == 0) {
+        return 0;
+    }
+    auto result = sp[0];
+    sp.advance(1);
+    return result;
+}
+
+int64_t AvroReader::readInt() {
+    if (!velox::Varint::canDecode(sp)) {
+        sp.advance(sp.size());
+        return 0;
+    }
+    auto p = sp.data();
+    auto v = static_cast<int64_t>(velox::Varint::decode(&p, sp.size()));
+    sp.advance(p - sp.data());
+    return velox::ZigZag::decode(v);
+}
+
+std::string_view AvroReader::readString(size_t length) {
+    if (sp.size() < length) {
+        // Read to the end
+        sp.advance(sp.size());
+        return std::string_view{};
+    }
+    std::string_view result{sp.data(), length};
+    sp.advance(length);
+    return result;
+}
+
+std::string_view AvroReader::readString() {
+    return readString(readInt());
+}
+
+std::unique_ptr<folly::compression::Codec> getAvroCodec(std::string_view name) {
+    if (name == "deflate") {
+        LOG(INFO) << "Codec2: " << name;
+        return folly::compression::getCodec(folly::compression::CodecType::ZLIB);
+    } else if (name == "null") {
+        return folly::compression::getCodec(folly::compression::CodecType::NO_COMPRESSION);
+    }
+    return nullptr;
+}
+
 std::unique_ptr<IcebergManifestList> IcebergManifestList::fromAvro(ByteBuffer& buffer) {
+    AvroReader reader{buffer.data(), buffer.size()};
+    if (reader.readString(4) != "Obj\x01") {
+        LOG(ERROR) << "Invalid Avro data";
+        return nullptr;
+    }
+
+    // Read metadata
+    std::unordered_map<std::string_view, std::string_view> metadata;
+    auto metadataSize = reader.readInt();
+    LOG(INFO) << "Metadata size: " << metadataSize;
+    for (int64_t i = 0; i < metadataSize; i++) {
+        // Do not inline in arguments - read order is important.
+        auto key = reader.readString();
+        auto value = reader.readString();
+        LOG(INFO) << "Metadata: " << key << " = " << value;
+        metadata.emplace(key, value);
+    }
+    // LOG(INFO)<<"end " <<reader.readInt();
+    if (reader.readByte() != 0) {
+        LOG(ERROR) << "Invalid Avro file";
+        return nullptr;
+    }
+
+    auto sync1 = reader.readString(16);
+
+    auto numObjects = reader.readInt();
+    LOG(INFO) << "Number of objects: " << numObjects;
+    auto data = reader.readString();
+    LOG(INFO) << "Compressed size: " << data.size();
+    LOG(INFO) << "Data size: " << reader.remaining();
+    // LOG(INFO) << "Byte: " << (int)(unsigned char)reader.readByte();
+    // if (reader.readByte() != 0) {
+    //     LOG(ERROR) << "Invalid Avro file";
+    //     return nullptr;
+    // }
+    auto sync2 = reader.readString(16);
+
+    auto codecName = folly::get_default(metadata, "avro.codec");
+    std::unique_ptr<folly::compression::Codec> codec = getAvroCodec(codecName);
+    if (!codec) {
+        LOG(ERROR) << "Unsupported codec: " << codecName;
+        return nullptr;
+    }
+
+    auto compressedData = folly::IOBuf::wrapBuffer(data.data(), data.size());
+    folly::Optional<uint64_t> uncompressedLength = codec->getUncompressedLength(
+            compressedData.get(), folly::Optional<uint64_t>(data.size()));
+    if (uncompressedLength) {
+        LOG(INFO) << "Uncompressed length: " << *uncompressedLength;
+    }
+    LOG(INFO) << "Before uncompress";
+    std::unique_ptr<folly::IOBuf> uncompressedData =
+            codec->uncompress(compressedData.get(), uncompressedLength);
+
     auto manifestList = std::make_unique<IcebergManifestList>();
     return manifestList;
 }

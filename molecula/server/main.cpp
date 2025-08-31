@@ -4,7 +4,6 @@
 #include "molecula/s3/S3Client.hpp"
 #include "molecula/server/Server.hpp"
 #include "velox/common/base/Status.h"
-#include "velox/common/base/VeloxException.h"
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>

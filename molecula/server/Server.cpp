@@ -55,13 +55,14 @@ void Server::testIceberg() {
 
     auto* currentSnapshot = metadata->findCurrentSnapshot();
     if (!currentSnapshot) {
-        LOG(ERROR) << "No current snapshot found";
+        LOG(ERROR) << "No current snapshot found!";
         return;
     }
 
     LOG(INFO) << "Current snapshot manifest list: " << currentSnapshot->getManifestList();
+    S3Id s3ManifestListId = S3Id::fromStringView(currentSnapshot->getManifestList());
 
-    S3GetObjectRequest s3GetManifestListRequest{"datalake", "db/testtbl/metadata/v2.metadata.json"};
+    S3GetObjectRequest s3GetManifestListRequest{s3ManifestListId.bucket(), s3ManifestListId.key()};
     auto s3GetManifestList = s3Client->getObject(s3GetManifestListRequest).get();
     if (s3GetManifestList.status != 200) {
         LOG(ERROR) << "Failed to get Iceberg metadata, status: " << s3GetManifestList.status;
