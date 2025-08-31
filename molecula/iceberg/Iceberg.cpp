@@ -30,10 +30,10 @@ void readProperties(
     if (element.get(object) != json::SUCCESS) {
         throw std::runtime_error(kErrorMetadata);
     }
-    for (const auto [name, e] : object) {
+    for (const auto [key, e] : object) {
         std::string value;
         json::get_value(e, value);
-        properties.emplace(std::string{name}, std::move(value));
+        properties.emplace(std::string{key}, std::move(value));
     }
 }
 
@@ -41,18 +41,18 @@ class SnapshotReader {
 public:
     explicit SnapshotReader(Snapshot* snapshot) : snapshot{snapshot} {}
 
-    void read(json::dom::element root) {
+    void read(json::dom::element element) const {
         json::dom::object object;
-        if (root.get(object) != json::SUCCESS) {
+        if (element.get(object) != json::SUCCESS) {
             throw std::runtime_error(kErrorMetadata);
         }
-        for (const auto [name, element] : object) {
-            lookupAndSet(name, element);
+        for (const auto [key, element] : object) {
+            lookupAndSet(key, element);
         }
     }
 
 private:
-    void lookupAndSet(std::string_view name, json::dom::element element) {
+    void lookupAndSet(std::string_view name, json::dom::element element) const {
         if (name.size() < 6) {
             return;
         }
@@ -92,18 +92,18 @@ class MetadataReader {
 public:
     explicit MetadataReader(Metadata* metadata) : metadata{metadata} {}
 
-    void read(json::dom::element element) {
+    void read(json::dom::element element) const {
         json::dom::object object;
         if (element.get(object) != json::SUCCESS) {
             throw std::runtime_error(kErrorMetadata);
         }
-        for (const auto [name, element] : object) {
-            lookupAndSet(name, element);
+        for (const auto [key, element] : object) {
+            lookupAndSet(key, element);
         }
     }
 
 private:
-    void lookupAndSet(std::string_view name, json::dom::element element) {
+    void lookupAndSet(std::string_view name, json::dom::element element) const {
         switch (name[0]) {
         case 'c':
             // Check for "current-xxx"
@@ -168,8 +168,7 @@ private:
                 }
                 for (json::dom::element e : array) {
                     Snapshot snapshot;
-                    SnapshotReader reader{&snapshot};
-                    reader.read(e);
+                    SnapshotReader{&snapshot}.read(e);
                     metadata->snapshots.push_back(std::move(snapshot));
                 }
             }
@@ -196,8 +195,7 @@ std::unique_ptr<Metadata> Metadata::fromJson(ByteBuffer& buffer) {
         throw std::runtime_error(kErrorMetadata);
     }
     auto metadata = std::make_unique<Metadata>();
-    MetadataReader reader{metadata.get()};
-    reader.read(doc.root());
+    MetadataReader{metadata.get()}.read(doc.root());
     return metadata;
 }
 
@@ -230,7 +228,6 @@ public:
         if (sp.size() == 0) {
             throw std::runtime_error(kErrorAvroRead);
         }
-
         auto result = sp[0];
         sp.advance(1);
         return result;
@@ -278,17 +275,78 @@ std::unique_ptr<folly::compression::Codec> getAvroCompressionCodec(std::string_v
     return nullptr;
 }
 
-class ManifestListAvroSchemaRecord {
+class ManifestListAvroSchemaField {
 public:
+    friend class ManifestListAvroSchemaFieldReader;
+
     int64_t id{};
     std::string name;
     std::string type;
 };
 
-class ManifestListAvroSchema {
+class ManifestListAvroSchemaFieldReader {
 public:
-    std::vector<ManifestListAvroSchemaRecord> fields;
+    explicit ManifestListAvroSchemaFieldReader(ManifestListAvroSchemaField* field) : field{field} {}
+
+    void read(json::dom::element element) const {
+        json::dom::object object;
+        if (element.get(object) != json::SUCCESS) {
+            throw std::runtime_error(kErrorManifestList);
+        }
+        for (const auto [key, element] : object) {
+            lookupAndSet(key, element);
+        }
+    }
+
+private:
+    void lookupAndSet(std::string_view name, json::dom::element element) const {
+        if (name == "field-id") {
+            json::get_value(element, field->id);
+        } else if (name == "name") {
+            json::get_value(element, field->name);
+        } else if (name == "type") {
+            json::get_value(element, field->type);
+        } else if (name == "doc") {
+            // Do nothing
+        }
+    }
+
+    ManifestListAvroSchemaField* field{};
 };
+
+void readManifestListAvroSchema(
+        json::dom::element element,
+        std::vector<ManifestListAvroSchemaField>& schema) {
+    json::dom::object object;
+    if (element.get(object) != json::SUCCESS) {
+        throw std::runtime_error(kErrorManifestList);
+    }
+    for (const auto [key, element] : object) {
+        if (key == "type") {
+            std::string_view type;
+            json::get_value(element, type);
+            if (type != "record") {
+                throw std::runtime_error(kErrorManifestList);
+            }
+        } else if (key == "name") {
+            std::string_view name;
+            json::get_value(element, name);
+            if (name != "manifest_file") {
+                throw std::runtime_error(kErrorManifestList);
+            }
+        } else if (key == "fields") {
+            json::dom::array array;
+            if (element.get(array) != json::SUCCESS) {
+                throw std::runtime_error(kErrorManifestList);
+            }
+            for (const auto e : array) {
+                ManifestListAvroSchemaField field;
+                ManifestListAvroSchemaFieldReader{&field}.read(e);
+                schema.push_back(std::move(field));
+            }
+        }
+    }
+}
 
 std::unique_ptr<ManifestList> ManifestList::fromAvro(ByteBuffer& buffer) {
     AvroReader reader{buffer.data(), buffer.size()};
@@ -323,6 +381,9 @@ std::unique_ptr<ManifestList> ManifestList::fromAvro(ByteBuffer& buffer) {
     //     return nullptr;
     // }
     auto sync2 = reader.readString(16);
+    if (reader.remaining() != 0) {
+        throw std::runtime_error(kErrorAvroRead);
+    }
 
     auto codecName = folly::get_default(metadata, "avro.codec");
     std::unique_ptr<folly::compression::Codec> codec = getAvroCompressionCodec(codecName);
@@ -331,28 +392,24 @@ std::unique_ptr<ManifestList> ManifestList::fromAvro(ByteBuffer& buffer) {
     }
 
     // Put it in its own buffer for simdjson.
-    auto schema = folly::get_default(metadata, "avro.schema");
-    if (schema.empty()) {
+    auto schemaJson = folly::get_default(metadata, "avro.schema");
+    if (schemaJson.empty()) {
         throw std::runtime_error(kErrorAvroSchema);
     }
-    ByteBuffer schemaJsonBuffer(schema.size() + 64);
-    schemaJsonBuffer.append(schema);
+    ByteBuffer schemaJsonBuffer{schemaJson.size() + 64};
+    schemaJsonBuffer.append(schemaJson);
     json::dom::document avroSchemaDoc;
     if (!json::parse(schemaJsonBuffer, avroSchemaDoc)) {
         throw std::runtime_error(kErrorAvroSchema);
     }
+    std::vector<ManifestListAvroSchemaField> schema;
+    readManifestListAvroSchema(avroSchemaDoc.root(), schema);
 
     auto compressedBuf = folly::IOBuf::wrapBuffer(data.data(), data.size());
-    // folly::Optional<uint64_t> uncompressedLength = codec->getUncompressedLength(
-    //         compressedBuf.get(), folly::Optional<uint64_t>());
-    // if (uncompressedLength) {
-    //     LOG(INFO) << "Uncompressed length: " << *uncompressedLength;
-    // }
-    LOG(INFO) << "Before uncompress";
-    std::unique_ptr<folly::IOBuf> uncompressedData = codec->uncompress(compressedBuf.get());
-    uncompressedData->coalesce();
+    std::unique_ptr<folly::IOBuf> uncompressedBuf = codec->uncompress(compressedBuf.get());
+    uncompressedBuf->coalesce();
 
-    AvroReader dataReader{(const char*)uncompressedData->data(), uncompressedData->length()};
+    AvroReader dataReader{(const char*)uncompressedBuf->data(), uncompressedBuf->length()};
     for (int64_t i = 0; i < numObjects; i++) {
         auto name = dataReader.readString();
         LOG(INFO) << "Manifest file: " << name;
