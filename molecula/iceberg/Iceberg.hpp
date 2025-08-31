@@ -41,13 +41,13 @@ public:
 private:
 };
 
-class Snapshot : public JsonVisitor {
+class Snapshot : public json::Visitor {
 public:
     friend class Metadata;
 
     Snapshot() = default;
-    JsonVisit visit(std::string_view name, int64_t value) override;
-    JsonVisit visit(std::string_view name, std::string_view value) override;
+    json::Next visit(std::string_view name, int64_t value) override;
+    json::Next visit(std::string_view name, std::string_view value) override;
 
     std::string_view getManifestList() const {
         return manifestList;
@@ -62,7 +62,7 @@ private:
 };
 
 // Iceberg table metadata.
-class Metadata : public JsonVisitor {
+class Metadata : public json::Visitor {
 public:
     static std::unique_ptr<Metadata> fromJson(ByteBuffer& buffer);
 
@@ -78,11 +78,11 @@ public:
 
     Snapshot* findCurrentSnapshot();
 
-    JsonVisit visit(std::string_view name, int64_t value) override;
-    JsonVisit visit(std::string_view name, std::string_view value) override;
-    JsonVisit visit(std::string_view name, bool value) override;
-    JsonVisit visit(std::string_view name, JsonObject* node) override;
-    JsonVisit visit(std::string_view name, JsonArray* node) override;
+    json::Next visit(std::string_view name, int64_t value) override;
+    json::Next visit(std::string_view name, std::string_view value) override;
+    json::Next visit(std::string_view name, bool value) override;
+    json::Next visit(std::string_view name, json::Object* node) override;
+    json::Next visit(std::string_view name, json::Array* node) override;
 
 private:
     std::string uuid;

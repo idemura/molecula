@@ -4,29 +4,29 @@
 
 #include <string_view>
 
-namespace molecula {
+namespace molecula::json {
 
-struct JsonObject;
-struct JsonArray;
+struct Object;
+struct Array;
 
-enum class JsonVisit { Continue, Stop };
+enum class Next { Continue, Stop };
 
-/// Json tree visitor.
+/// JSON tree visitor.
 /// For object, then "name" is the key. For array, it is empty.
-class JsonVisitor {
+class Visitor {
 public:
-    virtual ~JsonVisitor() = default;
+    virtual ~Visitor() = default;
 
-    virtual JsonVisit visit(std::string_view name, int64_t value);
-    virtual JsonVisit visit(std::string_view name, std::string_view value);
-    virtual JsonVisit visit(std::string_view name, bool value);
-    virtual JsonVisit visit(std::string_view name, double value);
-    virtual JsonVisit visit(std::string_view name, JsonObject* node);
-    virtual JsonVisit visit(std::string_view name, JsonArray* node);
+    virtual Next visit(std::string_view name, int64_t value);
+    virtual Next visit(std::string_view name, std::string_view value);
+    virtual Next visit(std::string_view name, bool value);
+    virtual Next visit(std::string_view name, double value);
+    virtual Next visit(std::string_view name, Object* node);
+    virtual Next visit(std::string_view name, Array* node);
 };
 
-bool jsonParse(ByteBuffer& buffer, JsonVisitor* visitor);
-JsonVisit jsonAccept(JsonVisitor* visitor, JsonObject* node);
-JsonVisit jsonAccept(JsonVisitor* visitor, JsonArray* node);
+bool parse(ByteBuffer& buffer, Visitor* visitor);
+Next accept(Visitor* visitor, Object* node);
+Next accept(Visitor* visitor, Array* node);
 
-} // namespace molecula
+} // namespace molecula::json

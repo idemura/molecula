@@ -6,111 +6,111 @@
 
 #include <glog/logging.h>
 
-namespace json = simdjson;
+namespace molecula::json {
 
-namespace molecula {
-
-JsonVisit JsonVisitor::visit(std::string_view name, int64_t value) {
-    return JsonVisit::Continue;
+Next Visitor::visit(std::string_view name, int64_t value) {
+    return Next::Continue;
 }
 
-JsonVisit JsonVisitor::visit(std::string_view name, std::string_view value) {
-    return JsonVisit::Continue;
+Next Visitor::visit(std::string_view name, std::string_view value) {
+    return Next::Continue;
 }
 
-JsonVisit JsonVisitor::visit(std::string_view name, bool value) {
-    return JsonVisit::Continue;
+Next Visitor::visit(std::string_view name, bool value) {
+    return Next::Continue;
 }
 
-JsonVisit JsonVisitor::visit(std::string_view name, double value) {
-    return JsonVisit::Continue;
+Next Visitor::visit(std::string_view name, double value) {
+    return Next::Continue;
 }
 
-JsonVisit JsonVisitor::visit(std::string_view name, JsonObject* node) {
-    return JsonVisit::Continue;
+Next Visitor::visit(std::string_view name, Object* node) {
+    return Next::Continue;
 }
 
-JsonVisit JsonVisitor::visit(std::string_view name, JsonArray* node) {
-    return JsonVisit::Continue;
+Next Visitor::visit(std::string_view name, Array* node) {
+    return Next::Continue;
 }
 
-struct JsonObject {
-    explicit JsonObject(json::dom::element e) {
-        (void)e.get(element);
+struct Object {
+    explicit Object(simdjson::dom::element e) {
+        (void)e.get(object);
     }
-    json::dom::object element;
+    simdjson::dom::object object;
 };
 
-struct JsonArray {
-    explicit JsonArray(json::dom::element e) {
-        (void)e.get(element);
+struct Array {
+    explicit Array(simdjson::dom::element e) {
+        (void)e.get(array);
     }
-    json::dom::array element;
+    simdjson::dom::array array;
 };
 
 template <typename T>
-inline T jsonGetValue(json::dom::element element) {
+inline T jsonGetValue(simdjson::dom::element element) {
     T value{};
     (void)element.get(value);
     return value;
 }
 
-static JsonVisit
-jsonAcceptDomElement(JsonVisitor* visitor, std::string_view name, json::dom::element element) {
+static Next
+acceptDomElement(Visitor* visitor, std::string_view name, simdjson::dom::element element) {
+    using simdjson::dom::element_type;
+
     switch (element.type()) {
-        case json::dom::element_type::OBJECT: {
-            JsonObject node{element};
+        case element_type::OBJECT: {
+            Object node{element};
             return visitor->visit(name, &node);
         }
-        case json::dom::element_type::ARRAY: {
-            JsonArray node{element};
+        case element_type::ARRAY: {
+            Array node{element};
             return visitor->visit(name, &node);
         }
-        case json::dom::element_type::INT64:
+        case element_type::INT64:
             return visitor->visit(name, jsonGetValue<int64_t>(element));
-        case json::dom::element_type::STRING:
+        case element_type::STRING:
             return visitor->visit(name, jsonGetValue<std::string_view>(element));
-        case json::dom::element_type::BOOL:
+        case element_type::BOOL:
             return visitor->visit(name, jsonGetValue<bool>(element));
-        case json::dom::element_type::DOUBLE:
+        case element_type::DOUBLE:
             return visitor->visit(name, jsonGetValue<double>(element));
-        case json::dom::element_type::UINT64:
+        case element_type::UINT64:
             LOG(ERROR) << "Integer is out of signed 64-bit int";
-            return JsonVisit::Stop;
-        case json::dom::element_type::NULL_VALUE:
-            return JsonVisit::Continue;
+            return Next::Stop;
+        case element_type::NULL_VALUE:
+            return Next::Continue;
     }
     // Shouldn't be here actually.
     LOG(ERROR) << "Unknown JSON element type " << element.type();
-    return JsonVisit::Stop;
+    return Next::Stop;
 }
 
-JsonVisit jsonAccept(JsonVisitor* visitor, JsonObject* node) {
-    for (const auto [key, value] : node->element) {
-        if (jsonAcceptDomElement(visitor, key, value) == JsonVisit::Stop) {
-            return JsonVisit::Stop;
+Next accept(Visitor* visitor, Object* node) {
+    for (const auto [key, value] : node->object) {
+        if (acceptDomElement(visitor, key, value) == Next::Stop) {
+            return Next::Stop;
         }
     }
-    return JsonVisit::Continue;
+    return Next::Continue;
 }
 
-JsonVisit jsonAccept(JsonVisitor* visitor, JsonArray* node) {
-    for (const auto item : node->element) {
-        if (jsonAcceptDomElement(visitor, {}, item) == JsonVisit::Stop) {
-            return JsonVisit::Stop;
+Next accept(Visitor* visitor, Array* node) {
+    for (const auto item : node->array) {
+        if (acceptDomElement(visitor, {}, item) == Next::Stop) {
+            return Next::Stop;
         }
     }
-    return JsonVisit::Continue;
+    return Next::Continue;
 }
 
-bool jsonParse(ByteBuffer& buffer, JsonVisitor* visitor) {
-    json::dom::element root;
+bool parse(ByteBuffer& buffer, Visitor* visitor) {
+    simdjson::dom::element root;
 
-    json::dom::parser parser;
-    bool reallocIfNeeded = buffer.capacity() - buffer.size() < json::SIMDJSON_PADDING;
+    simdjson::dom::parser parser;
+    bool reallocIfNeeded = buffer.capacity() - buffer.size() < simdjson::SIMDJSON_PADDING;
     auto error = parser.parse(buffer.data(), buffer.size(), reallocIfNeeded).get(root);
-    if (error != json::SUCCESS) {
-        LOG(ERROR) << json::error_message(error);
+    if (error != simdjson::SUCCESS) {
+        LOG(ERROR) << simdjson::error_message(error);
         return false;
     }
     if (!root.is_object()) {
@@ -118,8 +118,8 @@ bool jsonParse(ByteBuffer& buffer, JsonVisitor* visitor) {
         return false;
     }
 
-    JsonObject object{root};
-    return jsonAccept(visitor, &object) == JsonVisit::Continue;
+    Object object{root};
+    return accept(visitor, &object) == Next::Continue;
 }
 
-} // namespace molecula
+} // namespace molecula::json
