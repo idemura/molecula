@@ -3,7 +3,6 @@
 #include "folly/Range.h"
 #include "folly/compression/Compression.h"
 #include "folly/compression/Zlib.h"
-#include "folly/container/MapUtil.h"
 #include "molecula/iceberg/json.hpp"
 #include "velox/common/encode/Coding.h"
 
@@ -23,17 +22,15 @@ const char* kErrorAvroSchema{"ICE-03 Avro schema"};
 const char* kErrorManifestList{"ICE-04 Manifest list"};
 
 // JSON properties reader
-void readProperties(
-        json::dom::element element,
-        std::unordered_map<std::string, std::string>& properties) {
+void readProperties(json::dom::element element, PropertyMap& properties) {
     json::dom::object object;
     if (element.get(object) != json::SUCCESS) {
         throw std::runtime_error(kErrorMetadata);
     }
     for (const auto [key, e] : object) {
-        std::string value;
+        std::string_view value;
         json::get_value(e, value);
-        properties.emplace(std::string{key}, std::move(value));
+        properties.setProperty(key, value);
     }
 }
 
@@ -51,7 +48,6 @@ public:
         }
     }
 
-private:
     void lookupAndSet(std::string_view name, json::dom::element element) const {
         if (name.size() < 6) {
             return;
@@ -85,7 +81,7 @@ private:
         }
     }
 
-    Snapshot* snapshot{};
+    Snapshot* const snapshot{};
 };
 
 class MetadataReader {
@@ -102,7 +98,6 @@ public:
         }
     }
 
-private:
     void lookupAndSet(std::string_view name, json::dom::element element) const {
         switch (name[0]) {
         case 'c':
@@ -186,7 +181,7 @@ private:
         }
     }
 
-    Metadata* metadata{};
+    Metadata* const metadata{};
 };
 
 std::unique_ptr<Metadata> Metadata::fromJson(ByteBuffer& buffer) {
@@ -233,6 +228,12 @@ public:
         return result;
     }
 
+    void readByteAndCheck0() {
+        if (readByte() != 0) {
+            throw std::runtime_error(kErrorAvroRead);
+        }
+    }
+
     int64_t readInt() {
         if (!velox::Varint::canDecode(sp)) {
             throw std::runtime_error(kErrorAvroRead);
@@ -261,8 +262,6 @@ private:
     folly::StringPiece sp;
 };
 
-enum class AvroType { Int32, Int64, String, Record };
-
 std::unique_ptr<folly::compression::Codec> getAvroCompressionCodec(std::string_view name) {
     using namespace folly::compression;
     if (name == "deflate") {
@@ -272,23 +271,32 @@ std::unique_ptr<folly::compression::Codec> getAvroCompressionCodec(std::string_v
         return getCodec(CodecType::NO_COMPRESSION);
     }
     LOG(ERROR) << "Unsupported Avro codec: " << name;
-    return nullptr;
+    throw std::runtime_error(kErrorAvroCodec);
+}
+
+void readAvroMetadata(AvroReader& reader, PropertyMap& properties) {
+    auto metadataSize = reader.readInt();
+    for (int64_t i = 0; i < metadataSize; i++) {
+        // Do not inline BOTH arguments: must read in key, value order.
+        auto key = reader.readString();
+        properties.setProperty(key, reader.readString());
+    }
+    reader.readByteAndCheck0();
+}
+
+std::unique_ptr<folly::IOBuf> decompressAvroData(std::string_view data, PropertyMap& properties) {
+    auto codecName = properties.getProperty("avro.codec");
+    auto codec = getAvroCompressionCodec(codecName);
+
+    std::unique_ptr<folly::IOBuf> buf = folly::IOBuf::wrapBuffer(data.data(), data.size());
+    std::unique_ptr<folly::IOBuf> uncompressedBuf = codec->uncompress(buf.get());
+    uncompressedBuf->coalesce();
+    return uncompressedBuf;
 }
 
 class ManifestListAvroSchemaField {
 public:
-    friend class ManifestListAvroSchemaFieldReader;
-
-    int64_t id{};
-    std::string name;
-    std::string type;
-};
-
-class ManifestListAvroSchemaFieldReader {
-public:
-    explicit ManifestListAvroSchemaFieldReader(ManifestListAvroSchemaField* field) : field{field} {}
-
-    void read(json::dom::element element) const {
+    void read(json::dom::element element) {
         json::dom::object object;
         if (element.get(object) != json::SUCCESS) {
             throw std::runtime_error(kErrorManifestList);
@@ -298,20 +306,24 @@ public:
         }
     }
 
-private:
-    void lookupAndSet(std::string_view name, json::dom::element element) const {
+    void lookupAndSet(std::string_view name, json::dom::element element) {
         if (name == "field-id") {
-            json::get_value(element, field->id);
+            json::get_value(element, this->id);
         } else if (name == "name") {
-            json::get_value(element, field->name);
+            json::get_value(element, this->name);
         } else if (name == "type") {
-            json::get_value(element, field->type);
+            json::get_value(element, this->type);
         } else if (name == "doc") {
             // Do nothing
+        } else if (name == "default") {
+            this->optional = true;
         }
     }
 
-    ManifestListAvroSchemaField* field{};
+    int64_t id{};
+    std::string name;
+    std::string type;
+    bool optional{};
 };
 
 void readManifestListAvroSchema(
@@ -341,81 +353,82 @@ void readManifestListAvroSchema(
             }
             for (const auto e : array) {
                 ManifestListAvroSchemaField field;
-                ManifestListAvroSchemaFieldReader{&field}.read(e);
+                field.read(e);
                 schema.push_back(std::move(field));
             }
         }
     }
 }
 
+class ManifestListReader {
+public:
+    explicit ManifestListReader(ManifestList* manifestList) : manifestList{manifestList} {}
+
+    void read(AvroReader reader) const {
+        reader.readMagic();
+
+        readAvroMetadata(reader, manifestList->properties);
+
+        auto sync1 = reader.readString(16);
+
+        auto numObjects = reader.readInt();
+        LOG(INFO) << "Number of objects: " << numObjects;
+        auto compressedData = reader.readString();
+        LOG(INFO) << "Compressed size: " << compressedData.size();
+
+        auto sync2 = reader.readString(16);
+        if (reader.remaining() != 0) {
+            throw std::runtime_error(kErrorAvroRead);
+        }
+
+        // Put it in its own buffer for simdjson.
+        auto schemaJson = manifestList->properties.getProperty("avro.schema");
+        if (schemaJson.empty()) {
+            throw std::runtime_error(kErrorAvroSchema);
+        }
+        ByteBuffer schemaJsonBuffer{schemaJson.size() + 64};
+        schemaJsonBuffer.append(schemaJson);
+        json::dom::document avroSchemaDoc;
+        if (!json::parse(schemaJsonBuffer, avroSchemaDoc)) {
+            throw std::runtime_error(kErrorAvroSchema);
+        }
+        std::vector<ManifestListAvroSchemaField> schema;
+        readManifestListAvroSchema(avroSchemaDoc.root(), schema);
+
+        // Let's check the schema...
+
+        std::unique_ptr<folly::IOBuf> data =
+                decompressAvroData(compressedData, manifestList->properties);
+        AvroReader dataReader{(const char*)data->data(), data->length()};
+
+        for (int64_t i = 0; i < numObjects; i++) {
+            LOG(INFO) << "manifest_path: " << dataReader.readString();
+            LOG(INFO) << "manifest_length: " << dataReader.readInt();
+            LOG(INFO) << "partition_spec_id: " << dataReader.readInt();
+            LOG(INFO) << "content (0, 1): " << dataReader.readInt();
+            LOG(INFO) << "sequence_number: " << dataReader.readInt();
+            LOG(INFO) << "min_sequence_number: " << dataReader.readInt();
+            LOG(INFO) << "added_snapshot_id: " << dataReader.readInt();
+            LOG(INFO) << "added_files_count: " << dataReader.readInt();
+            LOG(INFO) << "existing_files_count: " << dataReader.readInt();
+            LOG(INFO) << "deleted_files_count: " << dataReader.readInt();
+            LOG(INFO) << "added_rows_count: " << dataReader.readInt();
+            LOG(INFO) << "existing_rows_count: " << dataReader.readInt();
+            LOG(INFO) << "deleted_rows_count: " << dataReader.readInt();
+            LOG(INFO) << "opt1: " << dataReader.readInt(); // 1
+            LOG(INFO) << "opt2: " << dataReader.readInt(); // 0
+            LOG(INFO) << "opt3: " << dataReader.readInt(); // 0
+            // LOG(INFO) << "opt2: " << (int) dataReader.readByte();
+            LOG(INFO) << "remaining: " << dataReader.remaining();
+        }
+    }
+
+    ManifestList* const manifestList{};
+};
+
 std::unique_ptr<ManifestList> ManifestList::fromAvro(ByteBuffer& buffer) {
-    AvroReader reader{buffer.data(), buffer.size()};
-    reader.readMagic();
-
-    // Read metadata
-    std::unordered_map<std::string_view, std::string_view> metadata;
-    auto metadataSize = reader.readInt();
-    LOG(INFO) << "Metadata size: " << metadataSize;
-    for (int64_t i = 0; i < metadataSize; i++) {
-        // Do not inline in arguments - read order is important.
-        auto key = reader.readString();
-        auto value = reader.readString();
-        LOG(INFO) << "Metadata: " << key << " = " << value;
-        metadata.emplace(key, value);
-    }
-    // LOG(INFO)<<"end " <<reader.readInt();
-    if (reader.readByte() != 0) {
-        throw std::runtime_error(kErrorAvroRead);
-    }
-
-    auto sync1 = reader.readString(16);
-
-    auto numObjects = reader.readInt();
-    LOG(INFO) << "Number of objects: " << numObjects;
-    auto data = reader.readString();
-    LOG(INFO) << "Compressed size: " << data.size();
-    LOG(INFO) << "Remaining size: " << reader.remaining();
-    // LOG(INFO) << "Byte: " << (int)(unsigned char)reader.readByte();
-    // if (reader.readByte() != 0) {
-    //     LOG(ERROR) << "Invalid Avro file";
-    //     return nullptr;
-    // }
-    auto sync2 = reader.readString(16);
-    if (reader.remaining() != 0) {
-        throw std::runtime_error(kErrorAvroRead);
-    }
-
-    auto codecName = folly::get_default(metadata, "avro.codec");
-    std::unique_ptr<folly::compression::Codec> codec = getAvroCompressionCodec(codecName);
-    if (!codec) {
-        throw std::runtime_error(kErrorAvroCodec);
-    }
-
-    // Put it in its own buffer for simdjson.
-    auto schemaJson = folly::get_default(metadata, "avro.schema");
-    if (schemaJson.empty()) {
-        throw std::runtime_error(kErrorAvroSchema);
-    }
-    ByteBuffer schemaJsonBuffer{schemaJson.size() + 64};
-    schemaJsonBuffer.append(schemaJson);
-    json::dom::document avroSchemaDoc;
-    if (!json::parse(schemaJsonBuffer, avroSchemaDoc)) {
-        throw std::runtime_error(kErrorAvroSchema);
-    }
-    std::vector<ManifestListAvroSchemaField> schema;
-    readManifestListAvroSchema(avroSchemaDoc.root(), schema);
-
-    auto compressedBuf = folly::IOBuf::wrapBuffer(data.data(), data.size());
-    std::unique_ptr<folly::IOBuf> uncompressedBuf = codec->uncompress(compressedBuf.get());
-    uncompressedBuf->coalesce();
-
-    AvroReader dataReader{(const char*)uncompressedBuf->data(), uncompressedBuf->length()};
-    for (int64_t i = 0; i < numObjects; i++) {
-        auto name = dataReader.readString();
-        LOG(INFO) << "Manifest file: " << name;
-    }
-
     auto manifestList = std::make_unique<ManifestList>();
+    ManifestListReader{manifestList.get()}.read(AvroReader{buffer.data(), buffer.size()});
     return manifestList;
 }
 
