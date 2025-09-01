@@ -49,7 +49,8 @@ void Server::testIceberg() {
         return;
     }
 
-    auto metadata = iceberg::Metadata::fromJson(s3GetMetadata.data);
+    auto metadata =
+            iceberg::Metadata::fromJson(s3GetMetadata.data.view(), s3GetMetadata.data.capacity());
     LOG(INFO) << "Table UUID: " << metadata->getUuid();
     LOG(INFO) << "Table location: " << metadata->getLocation();
 
@@ -60,16 +61,30 @@ void Server::testIceberg() {
     }
 
     LOG(INFO) << "Current snapshot manifest list: " << currentSnapshot->getManifestList();
-    S3Id s3ManifestListId = S3Id::fromStringView(currentSnapshot->getManifestList());
-
-    S3GetObjectRequest s3GetManifestListRequest{s3ManifestListId.bucket(), s3ManifestListId.key()};
-    auto s3GetManifestList = s3Client->getObject(s3GetManifestListRequest).get();
+    auto s3ManifestListId = S3Id::fromStringView(currentSnapshot->getManifestList());
+    auto s3GetManifestList = s3Client->getObject(S3GetObjectRequest{s3ManifestListId}).get();
     if (s3GetManifestList.status != 200) {
         LOG(ERROR) << "Failed to get Iceberg metadata, status: " << s3GetManifestList.status;
         return;
     }
 
-    auto manifestList = iceberg::ManifestList::fromAvro(s3GetManifestList.data);
+    auto manifestList = iceberg::ManifestList::fromAvro(s3GetManifestList.data.view());
+    for (const auto& entry : manifestList->getManifests()) {
+        LOG(INFO) << "Manifest path: " << entry.manifestPath;
+        LOG(INFO) << "Manifest length: " << entry.manifestLength;
+        LOG(INFO) << "Manifest content: "
+                  << (entry.content == iceberg::ManifestContent::Data ? "Data" : "Deletes");
+
+        auto s3ManifestId = S3Id::fromStringView(entry.manifestPath);
+        auto s3GetManifest =
+                s3Client->getObject(S3GetObjectRequest{s3ManifestId.bucket(), s3ManifestId.key()})
+                        .get();
+        if (s3GetManifest.status != 200) {
+            LOG(ERROR) << "Failed to get Iceberg metadata, status: " << s3GetManifest.status;
+            return;
+        }
+        auto manifest = iceberg::Manifest::fromAvro(s3GetManifest.data.view());
+    }
 }
 
 } // namespace molecula

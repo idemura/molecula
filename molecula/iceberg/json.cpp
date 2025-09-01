@@ -4,11 +4,11 @@
 
 namespace molecula::json {
 
-bool parse(ByteBuffer& buffer, dom::document& doc) {
+bool parse(std::string_view data, size_t capacity, dom::document& doc) {
     json::dom::parser parser;
-    bool reallocIfNeeded = buffer.capacity() - buffer.size() < SIMDJSON_PADDING;
-    auto error =
-            parser.parse_into_document(doc, buffer.data(), buffer.size(), reallocIfNeeded).error();
+    bool reallocIfNeeded = capacity - data.size() < SIMDJSON_PADDING;
+    json::error_code error =
+            parser.parse_into_document(doc, data.data(), data.size(), reallocIfNeeded).error();
     if (error != SUCCESS) {
         LOG(ERROR) << error_message(error);
         return false;

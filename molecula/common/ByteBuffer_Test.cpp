@@ -4,7 +4,7 @@
 
 namespace molecula {
 
-GTEST_TEST(Common, ByteBuffer_Append) {
+GTEST_TEST(ByteBuffer, Append) {
     ByteBuffer s;
     EXPECT_EQ(s.size(), 0);
     EXPECT_EQ(s.capacity(), 0);
@@ -24,7 +24,7 @@ GTEST_TEST(Common, ByteBuffer_Append) {
     EXPECT_EQ(s.view(), "");
 }
 
-GTEST_TEST(Common, ByteBuffer_AppendBatches) {
+GTEST_TEST(ByteBuffer, AppendBatches) {
     ByteBuffer s;
     for (int i = 0; i < 50; i++) {
         s.append("0123456789");

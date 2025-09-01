@@ -1,6 +1,5 @@
 #pragma once
 
-#include "molecula/common/ByteBuffer.hpp"
 #include "molecula/common/types.hpp"
 
 #define SIMDJSON_EXCEPTIONS 0
@@ -57,6 +56,6 @@ inline bool get_value(dom::element element, std::chrono::milliseconds& out) {
     return get_value_convert<int64_t, std::chrono::milliseconds>(element, out);
 }
 
-bool parse(ByteBuffer& buffer, dom::document& doc);
+bool parse(std::string_view data, size_t capacity, dom::document& doc);
 
 } // namespace molecula::json

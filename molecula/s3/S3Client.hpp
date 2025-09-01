@@ -60,6 +60,7 @@ private:
 
 class S3GetObjectInfoRequest {
 public:
+    S3GetObjectInfoRequest(S3Id id) : bucket{id.bucket()}, key{id.key()} {}
     S3GetObjectInfoRequest(std::string_view bucket, std::string_view key) :
         bucket{bucket}, key{key} {}
 
@@ -79,6 +80,7 @@ public:
 
 class S3GetObjectRequest {
 public:
+    S3GetObjectRequest(S3Id id) : bucket{id.bucket()}, key{id.key()} {}
     S3GetObjectRequest(std::string_view bucket, std::string_view key) : bucket{bucket}, key{key} {}
 
     std::string_view bucket;

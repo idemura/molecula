@@ -1,9 +1,10 @@
 #pragma once
 
-#include "molecula/common/ByteBuffer.hpp"
+#include "molecula/common/PropertyMap.hpp"
 
 #include <chrono>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -15,31 +16,14 @@
 
 namespace molecula::iceberg {
 
-class PropertyMap {
+enum class ManifestContent { Data, Deletes };
+
+class ManifestListEntry {
 public:
-    std::string_view getProperty(std::string_view key) const {
-        auto it = map.find(key);
-        return it != map.end() ? it->second : std::string_view{};
-    }
-
-    void setProperty(std::string_view key, const std::string_view value) {
-        map[std::string(key)] = std::string(value);
-    }
-
-private:
-    struct hasher {
-        using is_transparent = void; // Mark as transparent
-        size_t operator()(std::string_view sv) const noexcept {
-            return std::hash<std::string_view>{}(sv);
-        }
-    };
-    struct equals {
-        using is_transparent = void;
-        bool operator()(std::string_view a, std::string_view b) const noexcept {
-            return a == b;
-        }
-    };
-    std::unordered_map<std::string, std::string, hasher, equals> map;
+    std::string manifestPath;
+    int64_t manifestLength{};
+    ManifestContent content{};
+    int64_t sequenceNumber{};
 };
 
 class ManifestList {
@@ -48,10 +32,34 @@ public:
     friend class ManifestListReader;
 
     // Throws if error
-    static std::unique_ptr<ManifestList> fromAvro(ByteBuffer& buffer);
+    static std::unique_ptr<ManifestList> fromAvro(std::string_view data);
+
+    std::span<ManifestListEntry> getManifests() {
+        return std::span{manifests};
+    }
 
 private:
     PropertyMap properties;
+    std::vector<ManifestListEntry> manifests;
+};
+
+class ManifestEntry {
+public:
+    std::string manifestPath;
+};
+
+class Manifest {
+public:
+    friend class Metadata;
+    friend class ManifestReader;
+
+    // Throws if error
+    static std::unique_ptr<Manifest> fromAvro(std::string_view data);
+
+private:
+    PropertyMap properties;
+    ManifestContent content{};
+    std::vector<ManifestEntry> dataFiles;
 };
 
 class Snapshot {
@@ -79,7 +87,7 @@ public:
     friend class MetadataReader;
 
     // Throws if error
-    static std::unique_ptr<Metadata> fromJson(ByteBuffer& buffer);
+    static std::unique_ptr<Metadata> fromJson(std::string_view data, size_t capacity);
 
     Metadata() = default;
 

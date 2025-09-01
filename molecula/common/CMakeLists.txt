@@ -3,6 +3,8 @@ add_library(
     STATIC
     ByteBuffer.cpp
     ByteBuffer.hpp
+    PropertyMap.cpp
+    PropertyMap.hpp
     types.hpp
 )
 
@@ -16,6 +18,7 @@ if(MOLECULA_BUILD_TESTS)
     add_executable(
         molecula_common_test
         ByteBuffer_Test.cpp
+        PropertyMap_Test.cpp
     )
 
     target_link_libraries(

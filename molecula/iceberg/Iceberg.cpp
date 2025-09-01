@@ -3,6 +3,7 @@
 #include "folly/Range.h"
 #include "folly/compression/Compression.h"
 #include "folly/compression/Zlib.h"
+#include "molecula/common/ByteBuffer.hpp"
 #include "molecula/iceberg/json.hpp"
 #include "velox/common/encode/Coding.h"
 
@@ -14,15 +15,14 @@ namespace velox = facebook::velox;
 
 namespace molecula::iceberg {
 
-const char* kErrorMetadata{"ICE-00 Metadata JSON"};
-const char* kErrorMetadataVersion{"ICE-01 Metadata version"};
-const char* kErrorAvroRead{"ICE-01 Avro read"};
-const char* kErrorAvroCodec{"ICE-02 Avro codec"};
-const char* kErrorAvroSchema{"ICE-03 Avro schema"};
-const char* kErrorManifestList{"ICE-04 Manifest list"};
+const char* kErrorMetadata{"ICE00 Metadata"};
+const char* kErrorManifestList{"ICE01 Manifest list"};
+const char* kErrorManifest{"ICE02 Manifest"};
+const char* kErrorJson{"ICE03 JSON"};
+const char* kErrorAvro{"ICE03 Avro"};
 
 // JSON properties reader
-void readProperties(json::dom::element element, PropertyMap& properties) {
+void readMetadataProperties(json::dom::element element, PropertyMap& properties) {
     json::dom::object object;
     if (element.get(object) != json::SUCCESS) {
         throw std::runtime_error(kErrorMetadata);
@@ -88,9 +88,13 @@ class MetadataReader {
 public:
     explicit MetadataReader(Metadata* metadata) : metadata{metadata} {}
 
-    void read(json::dom::element element) const {
+    void read(std::string_view data, size_t capacity) const {
+        json::dom::document doc;
+        if (!json::parse(data, capacity, doc)) {
+            throw std::runtime_error(kErrorMetadata);
+        }
         json::dom::object object;
-        if (element.get(object) != json::SUCCESS) {
+        if (doc.root().get(object) != json::SUCCESS) {
             throw std::runtime_error(kErrorMetadata);
         }
         for (const auto [key, element] : object) {
@@ -124,7 +128,8 @@ public:
                 json::get_value(element, version);
                 // We only support format version 2.
                 if (version != 2) {
-                    throw std::runtime_error(kErrorMetadataVersion);
+                    LOG(ERROR) << "Unsupported Iceberg version: " << version;
+                    throw std::runtime_error(kErrorMetadata);
                 }
             }
             break;
@@ -170,7 +175,7 @@ public:
             break;
         case 'p':
             if (name == "properties") {
-                readProperties(element, metadata->properties);
+                readMetadataProperties(element, metadata->properties);
             }
             break;
         case 't':
@@ -184,13 +189,9 @@ public:
     Metadata* const metadata{};
 };
 
-std::unique_ptr<Metadata> Metadata::fromJson(ByteBuffer& buffer) {
-    json::dom::document doc;
-    if (!json::parse(buffer, doc)) {
-        throw std::runtime_error(kErrorMetadata);
-    }
+std::unique_ptr<Metadata> Metadata::fromJson(std::string_view data, size_t capacity) {
     auto metadata = std::make_unique<Metadata>();
-    MetadataReader{metadata.get()}.read(doc.root());
+    MetadataReader{metadata.get()}.read(data, capacity);
     return metadata;
 }
 
@@ -203,11 +204,11 @@ Snapshot* Metadata::findCurrentSnapshot() {
     return nullptr;
 }
 
-// Data reader from Avro file. If reached end of data, all read operations will return
-// default values.
+// Avro data file reader. On error or end of data, methods throw.
+// Class only contains methods to read data from Avro, but doesn't store it.
 class AvroReader {
 public:
-    AvroReader(const char* data, size_t size) : sp{data, size} {}
+    AvroReader(std::string_view data) : sp{data.data(), data.size()} {}
 
     size_t remaining() const {
         return sp.size();
@@ -215,28 +216,28 @@ public:
 
     void readMagic() {
         if (readString(4) != "Obj\x01") {
-            throw std::runtime_error(kErrorAvroRead);
+            throw std::runtime_error(kErrorAvro);
         }
     }
 
     char readByte() {
         if (sp.size() == 0) {
-            throw std::runtime_error(kErrorAvroRead);
+            throw std::runtime_error(kErrorAvro);
         }
         auto result = sp[0];
         sp.advance(1);
         return result;
     }
 
-    void readByteAndCheck0() {
-        if (readByte() != 0) {
-            throw std::runtime_error(kErrorAvroRead);
+    void readByteAndCheck(int expected) {
+        if (readByte() != expected) {
+            throw std::runtime_error(kErrorAvro);
         }
     }
 
     int64_t readInt() {
         if (!velox::Varint::canDecode(sp)) {
-            throw std::runtime_error(kErrorAvroRead);
+            throw std::runtime_error(kErrorAvro);
         }
         auto p = sp.data();
         auto v = static_cast<int64_t>(velox::Varint::decode(&p, sp.size()));
@@ -246,7 +247,7 @@ public:
 
     std::string_view readString(size_t length) {
         if (sp.size() < length) {
-            throw std::runtime_error(kErrorAvroRead);
+            throw std::runtime_error(kErrorAvro);
         }
         std::string_view result{sp.data(), length};
         sp.advance(length);
@@ -256,6 +257,16 @@ public:
     // Reads string length from data.
     std::string_view readString() {
         return readString(readInt());
+    }
+
+    void readMetadata(PropertyMap& properties) {
+        auto size = readInt();
+        for (int64_t i = 0; i < size; i++) {
+            // Do not inline BOTH arguments: must read in key, value order.
+            auto key = readString();
+            properties.setProperty(key, readString());
+        }
+        readByteAndCheck(0);
     }
 
 private:
@@ -271,28 +282,55 @@ std::unique_ptr<folly::compression::Codec> getAvroCompressionCodec(std::string_v
         return getCodec(CodecType::NO_COMPRESSION);
     }
     LOG(ERROR) << "Unsupported Avro codec: " << name;
-    throw std::runtime_error(kErrorAvroCodec);
-}
-
-void readAvroMetadata(AvroReader& reader, PropertyMap& properties) {
-    auto metadataSize = reader.readInt();
-    for (int64_t i = 0; i < metadataSize; i++) {
-        // Do not inline BOTH arguments: must read in key, value order.
-        auto key = reader.readString();
-        properties.setProperty(key, reader.readString());
-    }
-    reader.readByteAndCheck0();
+    throw std::runtime_error(kErrorAvro);
 }
 
 std::unique_ptr<folly::IOBuf> decompressAvroData(std::string_view data, PropertyMap& properties) {
     auto codecName = properties.getProperty("avro.codec");
     auto codec = getAvroCompressionCodec(codecName);
-
-    std::unique_ptr<folly::IOBuf> buf = folly::IOBuf::wrapBuffer(data.data(), data.size());
-    std::unique_ptr<folly::IOBuf> uncompressedBuf = codec->uncompress(buf.get());
-    uncompressedBuf->coalesce();
-    return uncompressedBuf;
+    auto ioBuf = folly::IOBuf::wrapBuffer(data.data(), data.size());
+    return codec->uncompress(ioBuf.get());
 }
+
+// Avro file parsed content.
+class AvroContent {
+public:
+    // Avro metadata
+    PropertyMap properties;
+
+    int64_t numRecords{};
+
+    // Uncompressed data
+    std::unique_ptr<folly::IOBuf> data;
+
+    explicit AvroContent(std::string_view buffer) {
+        AvroReader reader{buffer};
+        reader.readMagic();
+
+        reader.readMetadata(properties);
+
+        // Sync block (omit)
+        (void)reader.readString(16);
+
+        // Store number of records in the data block
+        numRecords = reader.readInt();
+
+        auto compressedData = reader.readString();
+        data = decompressAvroData(compressedData, properties);
+        data->coalesce();
+
+        // Sync block (omit)
+        (void)reader.readString(16);
+
+        if (reader.remaining() != 0) {
+            throw std::runtime_error(kErrorAvro);
+        }
+    }
+
+    std::string_view getDataView() const {
+        return std::string_view{(const char*)data->data(), data->length()};
+    }
+};
 
 class ManifestListAvroSchemaField {
 public:
@@ -364,49 +402,44 @@ class ManifestListReader {
 public:
     explicit ManifestListReader(ManifestList* manifestList) : manifestList{manifestList} {}
 
-    void read(AvroReader reader) const {
-        reader.readMagic();
-
-        readAvroMetadata(reader, manifestList->properties);
-
-        auto sync1 = reader.readString(16);
-
-        auto numObjects = reader.readInt();
-        LOG(INFO) << "Number of objects: " << numObjects;
-        auto compressedData = reader.readString();
-        LOG(INFO) << "Compressed size: " << compressedData.size();
-
-        auto sync2 = reader.readString(16);
-        if (reader.remaining() != 0) {
-            throw std::runtime_error(kErrorAvroRead);
-        }
+    void read(std::string_view data) const {
+        AvroContent avro{data};
 
         // Put it in its own buffer for simdjson.
-        auto schemaJson = manifestList->properties.getProperty("avro.schema");
+        auto schemaJson = avro.properties.getProperty("avro.schema");
         if (schemaJson.empty()) {
-            throw std::runtime_error(kErrorAvroSchema);
+            throw std::runtime_error(kErrorAvro);
         }
         ByteBuffer schemaJsonBuffer{schemaJson.size() + 64};
         schemaJsonBuffer.append(schemaJson);
         json::dom::document avroSchemaDoc;
-        if (!json::parse(schemaJsonBuffer, avroSchemaDoc)) {
-            throw std::runtime_error(kErrorAvroSchema);
+        if (!json::parse(schemaJsonBuffer.view(), schemaJsonBuffer.capacity(), avroSchemaDoc)) {
+            throw std::runtime_error(kErrorAvro);
         }
         std::vector<ManifestListAvroSchemaField> schema;
         readManifestListAvroSchema(avroSchemaDoc.root(), schema);
 
         // Let's check the schema...
 
-        std::unique_ptr<folly::IOBuf> data =
-                decompressAvroData(compressedData, manifestList->properties);
-        AvroReader dataReader{(const char*)data->data(), data->length()};
-
-        for (int64_t i = 0; i < numObjects; i++) {
-            LOG(INFO) << "manifest_path: " << dataReader.readString();
-            LOG(INFO) << "manifest_length: " << dataReader.readInt();
+        AvroReader dataReader{avro.getDataView()};
+        for (int64_t i = 0; i < avro.numRecords; i++) {
+            ManifestListEntry entry;
+            entry.manifestPath = dataReader.readString();
+            entry.manifestLength = dataReader.readInt();
             LOG(INFO) << "partition_spec_id: " << dataReader.readInt();
-            LOG(INFO) << "content (0, 1): " << dataReader.readInt();
-            LOG(INFO) << "sequence_number: " << dataReader.readInt();
+            auto content = dataReader.readInt();
+            switch (content) {
+            case 0:
+                entry.content = ManifestContent::Data;
+                break;
+            case 1:
+                entry.content = ManifestContent::Deletes;
+                break;
+            default:
+                LOG(ERROR) << "Unknown manifest content: " << content;
+                throw std::runtime_error(kErrorManifestList);
+            }
+            entry.sequenceNumber = dataReader.readInt();
             LOG(INFO) << "min_sequence_number: " << dataReader.readInt();
             LOG(INFO) << "added_snapshot_id: " << dataReader.readInt();
             LOG(INFO) << "added_files_count: " << dataReader.readInt();
@@ -418,18 +451,80 @@ public:
             LOG(INFO) << "opt1: " << dataReader.readInt(); // 1
             LOG(INFO) << "opt2: " << dataReader.readInt(); // 0
             LOG(INFO) << "opt3: " << dataReader.readInt(); // 0
-            // LOG(INFO) << "opt2: " << (int) dataReader.readByte();
-            LOG(INFO) << "remaining: " << dataReader.remaining();
+            manifestList->manifests.push_back(std::move(entry));
         }
+        if (dataReader.remaining() != 0) {
+            LOG(INFO) << "Remaining: " << dataReader.remaining();
+            throw std::runtime_error(kErrorManifestList);
+        }
+
+        manifestList->properties = std::move(avro.properties);
     }
 
     ManifestList* const manifestList{};
 };
 
-std::unique_ptr<ManifestList> ManifestList::fromAvro(ByteBuffer& buffer) {
+std::unique_ptr<ManifestList> ManifestList::fromAvro(std::string_view data) {
     auto manifestList = std::make_unique<ManifestList>();
-    ManifestListReader{manifestList.get()}.read(AvroReader{buffer.data(), buffer.size()});
+    ManifestListReader{manifestList.get()}.read(data);
     return manifestList;
+}
+
+class ManifestReader {
+public:
+    explicit ManifestReader(Manifest* manifest) : manifest{manifest} {}
+
+    void read(std::string_view data) const {
+        AvroContent avro{data};
+
+        // Put it in its own buffer for simdjson.
+        auto schemaJson = avro.properties.getProperty("avro.schema");
+        LOG(INFO) << "Schema: " << schemaJson;
+        if (schemaJson.empty()) {
+            throw std::runtime_error(kErrorAvro);
+        }
+        ByteBuffer schemaJsonBuffer{schemaJson.size() + 64};
+        schemaJsonBuffer.append(schemaJson);
+        json::dom::document avroSchemaDoc;
+        if (!json::parse(schemaJsonBuffer.view(), schemaJsonBuffer.capacity(), avroSchemaDoc)) {
+            throw std::runtime_error(kErrorAvro);
+        }
+        // std::vector<ManifestListAvroSchemaField> schema;
+        // readManifestListAvroSchema(avroSchemaDoc.root(), schema);
+
+        // Let's check the schema...
+
+        AvroReader dataReader{avro.getDataView()};
+        for (int64_t i = 0; i < avro.numRecords; i++) {
+            ManifestEntry entry;
+            manifest->dataFiles.push_back(std::move(entry));
+        }
+        if (dataReader.remaining() != 0) {
+            LOG(ERROR) << "Remaining: " << dataReader.remaining();
+            throw std::runtime_error(kErrorManifest);
+        }
+
+        manifest->properties = std::move(avro.properties);
+    }
+
+    void readContentHeader(PropertyMap& properties) const {
+        auto content = properties.getProperty("content");
+        if (content == "data") {
+            manifest->content = ManifestContent::Data;
+        } else if (content == "deletes") {
+            manifest->content = ManifestContent::Deletes;
+        } else {
+            throw std::runtime_error(kErrorManifest);
+        }
+    }
+
+    Manifest* const manifest{};
+};
+
+std::unique_ptr<Manifest> Manifest::fromAvro(std::string_view data) {
+    auto manifest = std::make_unique<Manifest>();
+    ManifestReader{manifest.get()}.read(data);
+    return manifest;
 }
 
 } // namespace molecula::iceberg
