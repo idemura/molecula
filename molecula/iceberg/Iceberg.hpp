@@ -17,6 +17,7 @@
 namespace molecula::iceberg {
 
 enum class ManifestContent { Data, Deletes };
+enum class DataFileContent { Data, PositionDeletes, EqualityDeletes };
 
 class ManifestListEntry {
 public:
@@ -45,7 +46,13 @@ private:
 
 class ManifestEntry {
 public:
-    std::string manifestPath;
+    int64_t sequenceNumber{};
+    int64_t fileSequenceNumber{};
+    DataFileContent content{};
+    std::string filePath;
+    std::string fileFormat;
+    int64_t fileSize{};
+    int64_t recordCount{};
 };
 
 class Manifest {

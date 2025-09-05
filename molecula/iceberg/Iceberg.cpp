@@ -1,6 +1,7 @@
 #include "molecula/iceberg/Iceberg.hpp"
 
 #include "folly/Range.h"
+#include "folly/String.h"
 #include "folly/compression/Compression.h"
 #include "folly/compression/Zlib.h"
 #include "molecula/common/ByteBuffer.hpp"
@@ -448,9 +449,10 @@ public:
             LOG(INFO) << "added_rows_count: " << dataReader.readInt();
             LOG(INFO) << "existing_rows_count: " << dataReader.readInt();
             LOG(INFO) << "deleted_rows_count: " << dataReader.readInt();
-            LOG(INFO) << "opt1: " << dataReader.readInt(); // 1
-            LOG(INFO) << "opt2: " << dataReader.readInt(); // 0
-            LOG(INFO) << "opt3: " << dataReader.readInt(); // 0
+            LOG(INFO) << "partitions option: " << dataReader.readInt(); // 1, array
+            LOG(INFO) << "partitions array size: "
+                      << dataReader.readInt(); // 0 (size is null, array is over)
+            LOG(INFO) << "key_metadata option: " << dataReader.readInt(); // 0, null
             manifestList->manifests.push_back(std::move(entry));
         }
         if (dataReader.remaining() != 0) {
@@ -497,6 +499,130 @@ public:
         AvroReader dataReader{avro.getDataView()};
         for (int64_t i = 0; i < avro.numRecords; i++) {
             ManifestEntry entry;
+            if (dataReader.readInt() == 2) {
+                continue; // Deleted entry
+            }
+            if (dataReader.readInt() != 0) {
+                LOG(INFO) << "snapshot_id " << dataReader.readInt();
+            }
+            entry.sequenceNumber = dataReader.readInt();
+            entry.fileSequenceNumber = dataReader.readInt();
+            switch (dataReader.readInt()) {
+            case 0:
+                entry.content = DataFileContent::Data;
+                break;
+            case 1:
+                entry.content = DataFileContent::PositionDeletes;
+                break;
+            case 2:
+                entry.content = DataFileContent::EqualityDeletes;
+                break;
+            default:
+                throw std::runtime_error(kErrorManifest);
+            }
+            entry.filePath = dataReader.readString();
+            entry.fileFormat = dataReader.readString();
+            entry.recordCount = dataReader.readInt();
+            entry.fileSize = dataReader.readInt();
+            if (dataReader.readInt() == 1) {
+                LOG(INFO) << "column_sizes:";
+                int64_t arraySize = dataReader.readInt();
+                for (int64_t j = 0; j < arraySize; j++) {
+                    LOG(INFO) << "key " << dataReader.readInt();
+                    LOG(INFO) << "value " << dataReader.readInt();
+                }
+                LOG(INFO) << "column_sizes trailer " << dataReader.readInt();
+            } else {
+                LOG(INFO) << "column_sizes is null";
+            }
+            if (dataReader.readInt() == 1) {
+                LOG(INFO) << "value_counts:";
+                int64_t arraySize = dataReader.readInt();
+                for (int64_t j = 0; j < arraySize; j++) {
+                    LOG(INFO) << "key " << dataReader.readInt();
+                    LOG(INFO) << "value " << dataReader.readInt();
+                }
+                LOG(INFO) << "value_counts trailer " << dataReader.readInt();
+            } else {
+                LOG(INFO) << "value_counts is null";
+            }
+            if (dataReader.readInt() == 1) {
+                LOG(INFO) << "null_value_counts:";
+                int64_t arraySize = dataReader.readInt();
+                for (int64_t j = 0; j < arraySize; j++) {
+                    LOG(INFO) << "key " << dataReader.readInt();
+                    LOG(INFO) << "value " << dataReader.readInt();
+                }
+                LOG(INFO) << "null_value_counts trailer " << dataReader.readInt();
+            } else {
+                LOG(INFO) << "null_value_counts is null";
+            }
+            if (dataReader.readInt() == 1) {
+                LOG(INFO) << "nan_value_counts:";
+                int64_t arraySize = dataReader.readInt();
+                while (arraySize > 0) {
+                    for (int64_t j = 0; j < arraySize; j++) {
+                        LOG(INFO) << "key " << dataReader.readInt();
+                        LOG(INFO) << "value " << dataReader.readInt();
+                    }
+                    arraySize = dataReader.readInt();
+                }
+            } else {
+                LOG(INFO) << "nan_value_counts is null";
+            }
+            if (dataReader.readInt() == 1) {
+                LOG(INFO) << "lower_bounds:";
+                int64_t arraySize = dataReader.readInt();
+                for (int64_t j = 0; j < arraySize; j++) {
+                    LOG(INFO) << "key " << dataReader.readInt();
+                    LOG(INFO) << "value " << folly::hexlify(dataReader.readString());
+                }
+                LOG(INFO) << "lower_bounds trailer " << dataReader.readInt();
+            } else {
+                LOG(INFO) << "lower_bounds is null";
+            }
+            if (dataReader.readInt() == 1) {
+                LOG(INFO) << "upper_bounds:";
+                int64_t arraySize = dataReader.readInt();
+                for (int64_t j = 0; j < arraySize; j++) {
+                    LOG(INFO) << "key " << dataReader.readInt();
+                    LOG(INFO) << "value " << folly::hexlify(dataReader.readString());
+                }
+                LOG(INFO) << "upper_bounds trailer " << dataReader.readInt();
+            } else {
+                LOG(INFO) << "upper_bounds is null";
+            }
+            if (dataReader.readInt() == 1) {
+                LOG(INFO) << "key_metadata: " << folly::hexlify(dataReader.readString());
+            } else {
+                LOG(INFO) << "key_metadata is null";
+            }
+            if (dataReader.readInt() == 1) {
+                LOG(INFO) << "split_offsets:";
+                int64_t arraySize = dataReader.readInt();
+                for (int64_t j = 0; j < arraySize; j++) {
+                    LOG(INFO) << "offset " << dataReader.readInt();
+                }
+                LOG(INFO) << "split_offsets trailer " << dataReader.readInt();
+            } else {
+                LOG(INFO) << "split_offsets is null";
+            }
+            if (dataReader.readInt() == 1) {
+                LOG(INFO) << "equality_ids:";
+                int64_t arraySize = dataReader.readInt();
+                for (int64_t j = 0; j < arraySize; j++) {
+                    LOG(INFO) << "offset " << dataReader.readInt();
+                }
+                LOG(INFO) << "equality_ids trailer " << dataReader.readInt();
+            } else {
+                LOG(INFO) << "equality_ids is null";
+            }
+            if (dataReader.readInt() == 1) {
+                LOG(INFO) << "sort_order_id: " << dataReader.readInt();
+            } else {
+                LOG(INFO) << "sort_order_id is null";
+            }
+            // entry.manifestPath = dataReader.readString();
             manifest->dataFiles.push_back(std::move(entry));
         }
         if (dataReader.remaining() != 0) {

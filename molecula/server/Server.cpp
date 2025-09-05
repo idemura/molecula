@@ -73,7 +73,7 @@ void Server::testIceberg() {
         LOG(INFO) << "Manifest path: " << entry.manifestPath;
         LOG(INFO) << "Manifest length: " << entry.manifestLength;
         LOG(INFO) << "Manifest content: "
-                  << (entry.content == iceberg::ManifestContent::Data ? "Data" : "Deletes");
+                  << (entry.content == iceberg::ManifestContent::Data ? "data" : "deletes");
 
         auto s3ManifestId = S3Id::fromStringView(entry.manifestPath);
         auto s3GetManifest =
