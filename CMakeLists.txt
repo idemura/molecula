@@ -26,6 +26,7 @@ find_package(gflags REQUIRED)
 find_package(glog REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(simdjson REQUIRED)
+find_package(SQLite3 REQUIRED)
 
 add_subdirectory(velox)
 add_subdirectory(molecula)

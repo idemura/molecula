@@ -19,6 +19,7 @@ target_link_libraries(
     PRIVATE
     glog::glog
     simdjson::simdjson
+    SQLite::SQLite3
 )
 
 target_link_libraries(
