@@ -42,7 +42,6 @@ void testS3Client() {
             .region = "us-east-1"};
     auto s3Client = createS3Client(httpClient.get(), s3ClientConfig);
 
-    // S3GetObjectRequest req{"datalake", "poem.txt"};
     {
         S3GetObjectRequest req{"datalake", "my/kitty/elsa"};
         auto res = s3Client->getObject(req).get();
