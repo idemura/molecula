@@ -54,7 +54,7 @@ void Server::testIceberg() {
     LOG(INFO) << "Table UUID: " << metadata->getUuid();
     LOG(INFO) << "Table location: " << metadata->getLocation();
 
-    auto* currentSnapshot = metadata->findCurrentSnapshot();
+    auto *currentSnapshot = metadata->findCurrentSnapshot();
     if (!currentSnapshot) {
         LOG(ERROR) << "No current snapshot found!";
         return;
@@ -69,7 +69,7 @@ void Server::testIceberg() {
     }
 
     auto manifestList = iceberg::ManifestList::fromAvro(s3GetManifestList.data.view());
-    for (const auto& entry : manifestList->getManifests()) {
+    for (const auto &entry : manifestList->getManifests()) {
         LOG(INFO) << "Manifest path: " << entry.manifestPath;
         LOG(INFO) << "Manifest length: " << entry.manifestLength;
         LOG(INFO) << "Manifest content: "

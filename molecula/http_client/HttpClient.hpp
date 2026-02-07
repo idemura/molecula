@@ -56,7 +56,7 @@ public:
     HttpHeaders headers;
     ByteBuffer body;
 
-    void appendToBody(const char* data, size_t size);
+    void appendToBody(const char *data, size_t size);
 };
 
 /// Async HTTP client.
@@ -72,9 +72,9 @@ public:
     bool reserveContentLength{true};
 };
 
-std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config);
+std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig &config);
 std::string makeHeader(std::string_view name, std::string_view value);
-void lowerCaseHeader(std::string& header);
+void lowerCaseHeader(std::string &header);
 std::string_view getMethodName(HttpMethod method);
 
 inline bool is1xx(long status) {

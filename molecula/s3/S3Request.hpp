@@ -17,8 +17,8 @@ public:
     S3Time();
     explicit S3Time(std::time_t timestamp);
 
-    std::string_view getDate(char* buffer) const;
-    std::string_view getDateTime(char* buffer) const;
+    std::string_view getDate(char *buffer) const;
+    std::string_view getDateTime(char *buffer) const;
 
 private:
     std::time_t timestamp{};
@@ -50,8 +50,8 @@ public:
         return query;
     }
 
-    void prepareToSign(const S3Time& time);
-    void appendHeaderNames(std::string& output) const;
+    void prepareToSign(const S3Time &time);
+    void appendHeaderNames(std::string &output) const;
 
     // @prepareToSign should be called first.
     std::string getRequestTextToHash() const;
@@ -73,7 +73,7 @@ class S3SignerV4 {
 public:
     S3SignerV4(std::string_view accessKey, std::string_view secretKey, std::string_view region);
 
-    void generateSigningKey(const S3Time& time);
+    void generateSigningKey(const S3Time &time);
 
     std::string_view getSigningKey() const {
         return {signingKey, sizeof(signingKey)};
@@ -81,7 +81,7 @@ public:
 
     std::string getSigningKeyHex() const;
 
-    void sign(S3Request& request, const S3Time& time);
+    void sign(S3Request &request, const S3Time &time);
 
 private:
     std::string accessKey;

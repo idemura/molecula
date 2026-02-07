@@ -16,14 +16,14 @@ namespace velox = facebook::velox;
 
 namespace molecula::iceberg {
 
-const char* kErrorMetadata{"ICE00 Metadata"};
-const char* kErrorManifestList{"ICE01 Manifest list"};
-const char* kErrorManifest{"ICE02 Manifest"};
-const char* kErrorJson{"ICE03 JSON"};
-const char* kErrorAvro{"ICE03 Avro"};
+const char *kErrorMetadata{"ICE00 Metadata"};
+const char *kErrorManifestList{"ICE01 Manifest list"};
+const char *kErrorManifest{"ICE02 Manifest"};
+const char *kErrorJson{"ICE03 JSON"};
+const char *kErrorAvro{"ICE03 Avro"};
 
 // JSON properties reader
-void readMetadataProperties(json::dom::element element, PropertyMap& properties) {
+void readMetadataProperties(json::dom::element element, PropertyMap &properties) {
     json::dom::object object;
     if (element.get(object) != json::SUCCESS) {
         throw std::runtime_error(kErrorMetadata);
@@ -37,7 +37,7 @@ void readMetadataProperties(json::dom::element element, PropertyMap& properties)
 
 class SnapshotReader {
 public:
-    explicit SnapshotReader(Snapshot* snapshot) : snapshot{snapshot} {}
+    explicit SnapshotReader(Snapshot *snapshot) : snapshot{snapshot} {}
 
     void read(json::dom::element element) const {
         json::dom::object object;
@@ -82,12 +82,12 @@ public:
         }
     }
 
-    Snapshot* const snapshot{};
+    Snapshot *const snapshot{};
 };
 
 class MetadataReader {
 public:
-    explicit MetadataReader(Metadata* metadata) : metadata{metadata} {}
+    explicit MetadataReader(Metadata *metadata) : metadata{metadata} {}
 
     void read(std::string_view data, size_t capacity) const {
         json::dom::document doc;
@@ -187,7 +187,7 @@ public:
         }
     }
 
-    Metadata* const metadata{};
+    Metadata *const metadata{};
 };
 
 std::unique_ptr<Metadata> Metadata::fromJson(std::string_view data, size_t capacity) {
@@ -196,8 +196,8 @@ std::unique_ptr<Metadata> Metadata::fromJson(std::string_view data, size_t capac
     return metadata;
 }
 
-Snapshot* Metadata::findCurrentSnapshot() {
-    for (auto& snapshot : snapshots) {
+Snapshot *Metadata::findCurrentSnapshot() {
+    for (auto &snapshot : snapshots) {
         if (snapshot.id == currentSnapshotId) {
             return &snapshot;
         }
@@ -260,7 +260,7 @@ public:
         return readString(readInt());
     }
 
-    void readMetadata(PropertyMap& properties) {
+    void readMetadata(PropertyMap &properties) {
         auto size = readInt();
         for (int64_t i = 0; i < size; i++) {
             // Do not inline BOTH arguments: must read in key, value order.
@@ -286,7 +286,7 @@ std::unique_ptr<folly::compression::Codec> getAvroCompressionCodec(std::string_v
     throw std::runtime_error(kErrorAvro);
 }
 
-std::unique_ptr<folly::IOBuf> decompressAvroData(std::string_view data, PropertyMap& properties) {
+std::unique_ptr<folly::IOBuf> decompressAvroData(std::string_view data, PropertyMap &properties) {
     auto codecName = properties.getProperty("avro.codec");
     auto codec = getAvroCompressionCodec(codecName);
     auto ioBuf = folly::IOBuf::wrapBuffer(data.data(), data.size());
@@ -329,7 +329,7 @@ public:
     }
 
     std::string_view getDataView() const {
-        return std::string_view{(const char*)data->data(), data->length()};
+        return std::string_view{(const char *)data->data(), data->length()};
     }
 };
 
@@ -367,7 +367,7 @@ public:
 
 void readManifestListAvroSchema(
         json::dom::element element,
-        std::vector<ManifestListAvroSchemaField>& schema) {
+        std::vector<ManifestListAvroSchemaField> &schema) {
     json::dom::object object;
     if (element.get(object) != json::SUCCESS) {
         throw std::runtime_error(kErrorManifestList);
@@ -401,7 +401,7 @@ void readManifestListAvroSchema(
 
 class ManifestListReader {
 public:
-    explicit ManifestListReader(ManifestList* manifestList) : manifestList{manifestList} {}
+    explicit ManifestListReader(ManifestList *manifestList) : manifestList{manifestList} {}
 
     void read(std::string_view data) const {
         AvroContent avro{data};
@@ -463,7 +463,7 @@ public:
         manifestList->properties = std::move(avro.properties);
     }
 
-    ManifestList* const manifestList{};
+    ManifestList *const manifestList{};
 };
 
 std::unique_ptr<ManifestList> ManifestList::fromAvro(std::string_view data) {
@@ -474,7 +474,7 @@ std::unique_ptr<ManifestList> ManifestList::fromAvro(std::string_view data) {
 
 class ManifestReader {
 public:
-    explicit ManifestReader(Manifest* manifest) : manifest{manifest} {}
+    explicit ManifestReader(Manifest *manifest) : manifest{manifest} {}
 
     void read(std::string_view data) const {
         AvroContent avro{data};
@@ -633,7 +633,7 @@ public:
         manifest->properties = std::move(avro.properties);
     }
 
-    void readContentHeader(PropertyMap& properties) const {
+    void readContentHeader(PropertyMap &properties) const {
         auto content = properties.getProperty("content");
         if (content == "data") {
             manifest->content = ManifestContent::Data;
@@ -644,7 +644,7 @@ public:
         }
     }
 
-    Manifest* const manifest{};
+    Manifest *const manifest{};
 };
 
 std::unique_ptr<Manifest> Manifest::fromAvro(std::string_view data) {

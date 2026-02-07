@@ -106,7 +106,7 @@ public:
         return location;
     }
 
-    Snapshot* findCurrentSnapshot();
+    Snapshot *findCurrentSnapshot();
 
 private:
     std::string uuid;

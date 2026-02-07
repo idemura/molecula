@@ -1,8 +1,12 @@
+file(COPY ${CMAKE_SOURCE_DIR}/molecula/iceberg/sql DESTINATION ${CMAKE_BINARY_DIR}/molecula/iceberg/sql)
+
 add_library(
     molecula_iceberg
     STATIC
     Iceberg.cpp
     Iceberg.hpp
+    IcebergMetadataDb.cpp
+    IcebergMetadataDb.hpp
     json.cpp
     json.hpp
 )
@@ -34,6 +38,7 @@ if(MOLECULA_BUILD_TESTS)
     add_executable(
         molecula_iceberg_test
         Iceberg_Test.cpp
+        IcebergMetadataDb_Test.cpp
     )
 
     target_link_libraries(

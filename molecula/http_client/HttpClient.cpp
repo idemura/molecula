@@ -9,8 +9,8 @@ namespace molecula {
 
 static const std::string_view kHeaderContentLength{"content-length"};
 
-void lowerCaseHeader(std::string& header) {
-    for (char& c : header) {
+void lowerCaseHeader(std::string &header) {
+    for (char &c : header) {
         if (c == ':') {
             break; // Stop at the first colon
         }
@@ -53,7 +53,7 @@ void HttpHeaders::sort() {
 }
 
 std::string_view HttpHeaders::get(std::string_view name) const {
-    for (const std::string& header : headers) {
+    for (const std::string &header : headers) {
         if (header.starts_with(name)) {
             size_t i = name.size();
             if (i == header.size()) {
@@ -86,7 +86,7 @@ size_t HttpHeaders::getContentLength() const {
     return getLong(kHeaderContentLength);
 }
 
-void HttpResponse::appendToBody(const char* data, size_t size) {
+void HttpResponse::appendToBody(const char *data, size_t size) {
     if (body.capacity() == 0) {
         constexpr size_t kMaxReserve = 16 * 1024 * 1024; // 16MB
         body.reserve(std::min(headers.getContentLength(), kMaxReserve));

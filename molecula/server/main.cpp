@@ -31,7 +31,7 @@ void testS3Client() {
     LOG(INFO) << "HTTP status: " << response.status;
     LOG(INFO) << "Response body: " << response.body.view();
     LOG(INFO) << "Response headers:\n";
-    for (const std::string& header : response.headers.span()) {
+    for (const std::string &header : response.headers.span()) {
         LOG(INFO) << "  " << header;
     }
 
@@ -81,7 +81,7 @@ int serverMain(std::span<std::string_view> args) {
 
 } // namespace molecula
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     // Initializes glog inside
     folly::Init init(&argc, &argv);
 

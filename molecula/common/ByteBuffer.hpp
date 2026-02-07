@@ -16,15 +16,15 @@ public:
     ByteBuffer() = default;
     explicit ByteBuffer(size_t capacity);
 
-    ByteBuffer(const ByteBuffer&) = delete;
-    ByteBuffer& operator=(const ByteBuffer&) = delete;
+    ByteBuffer(const ByteBuffer &) = delete;
+    ByteBuffer &operator=(const ByteBuffer &) = delete;
 
-    ByteBuffer(ByteBuffer&& other) noexcept = default;
-    ByteBuffer& operator=(ByteBuffer&&) noexcept = default;
+    ByteBuffer(ByteBuffer &&other) noexcept = default;
+    ByteBuffer &operator=(ByteBuffer &&) noexcept = default;
 
     void reserve(size_t capacity);
     void resize(size_t size);
-    void append(const char* data, size_t size);
+    void append(const char *data, size_t size);
     void append(std::string_view str);
 
     void clear() {
@@ -39,7 +39,7 @@ public:
         return capacity_;
     }
 
-    char* data() {
+    char *data() {
         return data_.get();
     }
 

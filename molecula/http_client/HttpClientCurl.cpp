@@ -14,7 +14,7 @@ public:
 
     long id{};
     HttpRequest request;
-    curl_slist* headers{};
+    curl_slist *headers{};
     HttpResponse response;
     folly::Promise<HttpResponse> promise;
 };
@@ -24,28 +24,28 @@ static_assert(std::is_move_constructible_v<HttpRequest>);
 static_assert(std::is_move_constructible_v<HttpResponse>);
 static_assert(std::is_move_constructible_v<HttpContext>);
 
-static size_t curlWriteCallback(char* buffer, size_t size, size_t nmemb, void* arg) {
+static size_t curlWriteCallback(char *buffer, size_t size, size_t nmemb, void *arg) {
     size_t total = size * nmemb;
-    static_cast<HttpResponse*>(arg)->appendToBody(buffer, total);
+    static_cast<HttpResponse *>(arg)->appendToBody(buffer, total);
     // Must return number of bytes taken
     return total;
 }
 
-static size_t curlHeaderCallback(char* buffer, size_t size, size_t nmemb, void* arg) {
+static size_t curlHeaderCallback(char *buffer, size_t size, size_t nmemb, void *arg) {
     size_t total = size * nmemb;
-    static_cast<HttpResponse*>(arg)->headers.add(std::string{buffer, total});
+    static_cast<HttpResponse *>(arg)->headers.add(std::string{buffer, total});
     // Must return number of bytes taken
     return total;
 }
 
-std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig& config) {
+std::unique_ptr<HttpClient> createHttpClientCurl(const HttpClientConfig &config) {
     return HttpClientCurl::create(config);
 }
 
 std::mutex HttpClientCurl::globalMutex;
 long HttpClientCurl::numClients{};
 
-std::unique_ptr<HttpClient> HttpClientCurl::create(const HttpClientConfig& config) {
+std::unique_ptr<HttpClient> HttpClientCurl::create(const HttpClientConfig &config) {
     {
         std::lock_guard<std::mutex> lock{globalMutex};
         if (numClients == 0) {
@@ -54,14 +54,14 @@ std::unique_ptr<HttpClient> HttpClientCurl::create(const HttpClientConfig& confi
         ++numClients;
     }
 
-    void* multiHandle = curl_multi_init();
+    void *multiHandle = curl_multi_init();
     if (!multiHandle) {
         return nullptr;
     }
     return std::make_unique<HttpClientCurl>(multiHandle, config);
 }
 
-HttpClientCurl::HttpClientCurl(void* multiHandle, const HttpClientConfig& config) :
+HttpClientCurl::HttpClientCurl(void *multiHandle, const HttpClientConfig &config) :
     multiHandle{multiHandle}, eventThread{&HttpClientCurl::eventLoop, this}, config{config} {
     ::pipe(pipe);
 }
@@ -86,7 +86,7 @@ HttpClientCurl::~HttpClientCurl() {
 }
 
 folly::Future<HttpResponse> HttpClientCurl::makeRequest(HttpRequest request) {
-    auto* context = new HttpContext{std::move(request)};
+    auto *context = new HttpContext{std::move(request)};
     // Take future before adding to the queue. Context will be deleted in the event loop. Thus,
     // we need take future before adding to the queue (or under the lock).
     auto future = context->promise.getFuture();
@@ -108,13 +108,13 @@ void HttpClientCurl::eventLoop() {
         }
 
         // Handle completed transfers
-        CURLMsg* msg = nullptr;
+        CURLMsg *msg = nullptr;
         int msgsLeft = 0;
         while ((msg = curl_multi_info_read(multiHandle, &msgsLeft))) {
             if (msg->msg == CURLMSG_DONE) {
-                void* easyHandle = msg->easy_handle;
+                void *easyHandle = msg->easy_handle;
 
-                HttpContext* context = nullptr;
+                HttpContext *context = nullptr;
                 curl_easy_getinfo(easyHandle, CURLINFO_PRIVATE, &context);
                 // LOG(INFO) << "HTTP request #" << context->id << ": Done";
 
@@ -140,7 +140,7 @@ void HttpClientCurl::eventLoop() {
         curl_multi_wait(multiHandle, &curl_fd, 1, 1000, &numfds);
 
         // Add new requests from queue
-        HttpContext* context = nullptr;
+        HttpContext *context = nullptr;
         while ((context = takeNextFromQueue())) {
             // Every time we enqueue a new request, we write to the pipe. Read one byte back.
             ::read(pipe[0], buf, 1);
@@ -150,22 +150,22 @@ void HttpClientCurl::eventLoop() {
     }
 }
 
-HttpContext* HttpClientCurl::takeNextFromQueue() {
+HttpContext *HttpClientCurl::takeNextFromQueue() {
     std::unique_lock<std::mutex> lock(mutex);
     if (queue.empty()) {
         return nullptr;
     } else {
-        auto* context = queue.front();
+        auto *context = queue.front();
         queue.pop();
         return context;
     }
 }
 
-void* HttpClientCurl::createEasyHandle(HttpContext* context) {
+void *HttpClientCurl::createEasyHandle(HttpContext *context) {
     context->id = counter++;
     // LOG(INFO) << "HTTP request #" << context->id << ": Create";
 
-    void* easyHandle = curl_easy_init();
+    void *easyHandle = curl_easy_init();
     curl_easy_setopt(easyHandle, CURLOPT_URL, context->request.url.c_str());
     curl_easy_setopt(easyHandle, CURLOPT_PRIVATE, context);
     curl_easy_setopt(easyHandle, CURLOPT_WRITEFUNCTION, &curlWriteCallback);
@@ -195,7 +195,7 @@ void* HttpClientCurl::createEasyHandle(HttpContext* context) {
     }
 
     // Add headers
-    for (const std::string& header : context->request.headers.span()) {
+    for (const std::string &header : context->request.headers.span()) {
         context->headers = curl_slist_append(context->headers, header.c_str());
     }
     curl_easy_setopt(easyHandle, CURLOPT_HTTPHEADER, context->headers);

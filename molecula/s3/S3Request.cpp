@@ -14,21 +14,21 @@ static_assert(SHA256_DIGEST_LENGTH == 32, "SHA256 digest length must be 32 bytes
 
 // Buffer must be SHA256_DIGEST_LENGTH bytes long.
 static std::string_view
-cryptoHmacSha256(std::string_view key, std::string_view data, char* buffer) {
+cryptoHmacSha256(std::string_view key, std::string_view data, char *buffer) {
     unsigned int hashSize = 0;
     HMAC(EVP_sha256(),
          key.data(),
          key.size(),
-         (const unsigned char*)data.data(),
+         (const unsigned char *)data.data(),
          data.size(),
-         (unsigned char*)buffer,
+         (unsigned char *)buffer,
          &hashSize);
     return std::string_view{buffer, hashSize};
 }
 
 std::string cryptoSha256Hex(ByteSpan data) {
     char buffer[SHA256_DIGEST_LENGTH];
-    SHA256((const unsigned char*)data.data(), data.size(), (unsigned char*)buffer);
+    SHA256((const unsigned char *)data.data(), data.size(), (unsigned char *)buffer);
     return folly::hexlify({buffer, SHA256_DIGEST_LENGTH});
 }
 
@@ -38,12 +38,12 @@ S3Time::S3Time(std::time_t timestamp) : timestamp{timestamp} {
     ::gmtime_r(&this->timestamp, &tm);
 }
 
-std::string_view S3Time::getDate(char* buffer) const {
+std::string_view S3Time::getDate(char *buffer) const {
     auto length = std::strftime(buffer, kBufferSize, "%Y%m%d", &tm);
     return {buffer, length};
 }
 
-std::string_view S3Time::getDateTime(char* buffer) const {
+std::string_view S3Time::getDateTime(char *buffer) const {
     auto length = std::strftime(buffer, kBufferSize, "%Y%m%dT%H%M%SZ", &tm);
     return {buffer, length};
 }
@@ -54,7 +54,7 @@ S3SignerV4::S3SignerV4(
         std::string_view region) :
     accessKey{accessKey}, secretKey{secretKey}, region{region} {}
 
-void S3SignerV4::generateSigningKey(const S3Time& time) {
+void S3SignerV4::generateSigningKey(const S3Time &time) {
     char keys[2][SHA256_DIGEST_LENGTH];
 
     // Initalize first key with "AWS4" + secret key
@@ -76,7 +76,7 @@ std::string S3SignerV4::getSigningKeyHex() const {
     return folly::hexlify({signingKey, sizeof(signingKey)});
 }
 
-void S3SignerV4::sign(S3Request& request, const S3Time& time) {
+void S3SignerV4::sign(S3Request &request, const S3Time &time) {
     char buffer[S3Time::kBufferSize];
 
     generateSigningKey(time);
@@ -137,9 +137,9 @@ void S3Request::setQuery(std::string query) {
     this->query = std::move(query);
 }
 
-void S3Request::appendHeaderNames(std::string& output) const {
+void S3Request::appendHeaderNames(std::string &output) const {
     bool semicolon = false;
-    for (const std::string& header : headers.span()) {
+    for (const std::string &header : headers.span()) {
         if (semicolon) {
             output.append(";");
         } else {
@@ -154,7 +154,7 @@ void S3Request::appendHeaderNames(std::string& output) const {
     }
 }
 
-void S3Request::prepareToSign(const S3Time& time) {
+void S3Request::prepareToSign(const S3Time &time) {
     char buffer[S3Time::kBufferSize];
 
     bodyHash = cryptoSha256Hex(body);
@@ -179,7 +179,7 @@ std::string S3Request::getRequestTextToHash() const {
     output.append("\n");
 
     // Add headers
-    for (const std::string& header : headers.span()) {
+    for (const std::string &header : headers.span()) {
         output.append(header).append("\n");
     }
     output.append("\n");

@@ -108,11 +108,11 @@ public:
 class S3Client {
 public:
     virtual ~S3Client() = default;
-    virtual folly::Future<S3GetObjectInfo> getObjectInfo(const S3GetObjectInfoRequest& req) = 0;
-    virtual folly::Future<S3GetObject> getObject(const S3GetObjectRequest& req) = 0;
+    virtual folly::Future<S3GetObjectInfo> getObjectInfo(const S3GetObjectInfoRequest &req) = 0;
+    virtual folly::Future<S3GetObject> getObject(const S3GetObjectRequest &req) = 0;
 };
 
-std::unique_ptr<S3Client> createS3Client(HttpClient* httpClient, const S3ClientConfig& config);
+std::unique_ptr<S3Client> createS3Client(HttpClient *httpClient, const S3ClientConfig &config);
 std::time_t parseS3Time(std::string_view timeStr);
 
 } // namespace molecula

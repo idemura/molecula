@@ -26,7 +26,7 @@ void ByteBuffer::resize(size_t size) {
     size_ = size;
 }
 
-void ByteBuffer::append(const char* data, size_t size) {
+void ByteBuffer::append(const char *data, size_t size) {
     if (data_ == nullptr || size_ + size > capacity_) {
         allocateAndCopy(std::max(capacity_ * 2, size_ + size));
     }

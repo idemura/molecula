@@ -4,17 +4,17 @@
 #include <charconv>
 
 namespace molecula {
-std::unique_ptr<S3Client> createS3Client(HttpClient* httpClient, const S3ClientConfig& config) {
+std::unique_ptr<S3Client> createS3Client(HttpClient *httpClient, const S3ClientConfig &config) {
     return std::make_unique<S3ClientImpl>(httpClient, config);
 }
 
-S3ClientImpl::S3ClientImpl(HttpClient* httpClient, const S3ClientConfig& config) :
+S3ClientImpl::S3ClientImpl(HttpClient *httpClient, const S3ClientConfig &config) :
     httpClient{httpClient},
     endpoint{config.endpoint},
     signer{config.accessKey, config.secretKey, config.region},
     config{config} {}
 
-void S3ClientImpl::setObject(S3Request& request, std::string_view bucket, std::string_view key)
+void S3ClientImpl::setObject(S3Request &request, std::string_view bucket, std::string_view key)
         const {
     if (config.pathStyle) {
         request.setHost(endpoint.host());
@@ -25,7 +25,7 @@ void S3ClientImpl::setObject(S3Request& request, std::string_view bucket, std::s
     }
 }
 
-HttpRequest S3ClientImpl::createHttpRequest(S3Request& request) const {
+HttpRequest S3ClientImpl::createHttpRequest(S3Request &request) const {
     std::string url;
     url.append(endpoint.scheme());
     url.append("://");
@@ -45,13 +45,13 @@ HttpRequest S3ClientImpl::createHttpRequest(S3Request& request) const {
     HttpRequest httpRequest;
     httpRequest.url = std::move(url);
     httpRequest.method = request.method;
-    for (std::string& header : request.headers.span()) {
+    for (std::string &header : request.headers.span()) {
         httpRequest.headers.add(std::move(header));
     }
     return httpRequest;
 }
 
-folly::Future<S3GetObjectInfo> S3ClientImpl::getObjectInfo(const S3GetObjectInfoRequest& req) {
+folly::Future<S3GetObjectInfo> S3ClientImpl::getObjectInfo(const S3GetObjectInfoRequest &req) {
     S3Time time;
 
     // Prepare S3 request and sign it
@@ -67,7 +67,7 @@ folly::Future<S3GetObjectInfo> S3ClientImpl::getObjectInfo(const S3GetObjectInfo
     });
 }
 
-folly::Future<S3GetObject> S3ClientImpl::getObject(const S3GetObjectRequest& req) {
+folly::Future<S3GetObject> S3ClientImpl::getObject(const S3GetObjectRequest &req) {
     S3Time time;
 
     // Prepare S3 request and sign it
